@@ -122,11 +122,8 @@
 (defrecord Expand [macro form]
   Expression
   (-eval [_ env]
-
-
-    (->Answer (apply macro form env (next form)))
-
-    ))
+    (handle (thunk (Apply. macro (list* form env (next form))) env)
+            #(thunk % env))))
 
 (defmethod eval-seq 'if
   [[_ test then else] env]
@@ -266,6 +263,6 @@
   (eval '(do (prn :x) :y))
   (eval '(do (prn :x) (prn :y) :z))
 
-  (eval '(-> 5 inc))
+  (eval '(-> 8 inc (- 3)))
 
 )
