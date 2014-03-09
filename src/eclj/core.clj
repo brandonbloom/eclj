@@ -17,6 +17,7 @@
 
 ;;; Actions
 (defrecord Invoke [f args])
+(defrecord Var [sym])
 ;; Conditions
 ;TODO: Revisit these to offer more useful restarts.
 (defrecord Undefined [sym])
@@ -108,7 +109,7 @@
 (defrecord Apply [f args]
   Expression
   (-eval [_ env]
-    ;;TODO: Handle symbols, keywords, etc directly.
+    ;TODO: Directly evaluate symbols, keywords, and symbolic pure functions.
     (if (ifn? f)
       (raise (Invoke. f args))
       (raise (NotCallable. f args)))))
@@ -120,12 +121,18 @@
 
 (defrecord Expand [macro form]
   Expression
-  (-eval [_ env] ;TODO
+  (-eval [_ env]
+    (->Answer (apply macro form env (next form)))
+
     ))
 
 (defmethod eval-seq 'if
   [[_ test then else] env]
   (thunk (If. test then else) env))
+
+(defmethod eval-seq 'var
+  [[_ sym] env]
+  (raise (Var. sym)))
 
 (defn macro? [x]
   (and (var? x)
@@ -145,8 +152,6 @@
     (handle (thunk head env)
             #(apply-args % tail env))))
 
-;TODO: Support pure symbolic fns, evaluate directly.
-
 ;; Ops from tools.analyzer
 :binding
 :catch
@@ -158,24 +163,19 @@
 :host-call
 :host-field
 :host-interop ;; either field access or no-args method call
-:if
 :invoke
 :let
 :letfn
 :local
 :loop
-:map
 :maybe-class ;; e.g. java.lang.Integer or Long
 :maybe-host-form
 :new
 :quote
 :recur
-:set
 :set!
 :throw
 :try
-:var
-:vector
 :with-meta
 
 (defrecord Environment [locals]
@@ -197,7 +197,9 @@
 
 (def root-handlers
   {Invoke (fn [{:keys [f args]}]
-            (apply f args))})
+            (apply f args))
+   Var (fn [{:keys [sym]}]
+         (resolve sym))})
 
 (defn interpret [expr]
   (loop [f #(-eval expr (Environment. {}))]
@@ -225,6 +227,8 @@
   (eval 'inc)
   (eval 'foo)
 
+  (eval #'inc)
+
   (eval ())
 
   (eval (Let. 'x 1 2))
@@ -240,10 +244,12 @@
 
   (eval '(- 10 3))
   (eval '(+ (inc 5) (inc 10)))
-  ;(eval '(#'* (inc 4)))
+  (eval '(#'* (inc 4) 2))
 
   (eval '[inc 10])
   (trampoline (:k (interpret '[x 10])) 5)
   (eval '#{(+ 5 10)})
+
+  (eval '(-> 5 inc))
 
 )
