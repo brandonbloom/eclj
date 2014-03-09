@@ -67,10 +67,22 @@
 
 )
 
-;(for [t [clojure.lang.PersistentVector]]
-;  (extend t
-;(defn eval-coll [coll env]
-;  )
+(defn eval-items [coll env]
+  ((fn rec [dest src]
+     (if (empty? src)
+       (Answer. dest)
+       (handle (thunk (first src) env)
+               #(rec (conj dest %) (next src)))))
+   (empty coll) coll))
+
+(doseq [t [clojure.lang.PersistentArrayMap
+           clojure.lang.PersistentHashMap
+           clojure.lang.PersistentHashSet
+           clojure.lang.PersistentQueue
+           clojure.lang.PersistentTreeMap
+           clojure.lang.PersistentTreeSet
+           clojure.lang.PersistentVector]]
+  (extend t Expression {:-eval eval-items}))
 
 (defrecord Let [sym init expr]
   Expression
@@ -210,7 +222,7 @@
   (eval (Let. 'x 1 2))
   (eval (Let. 'x 1 'x))
   (eval (Let. 'x 1 'y))
-  ((:k (interpret (Let. 'x 1 'y))) 5)
+  (trampoline (:k (interpret (Let. 'x 1 'y))) 5)
 
   (eval '(if true 5 10))
   (eval '(if false 5 10))
@@ -219,5 +231,9 @@
   (eval '(if xx 5))
 
   (eval '(+ 5 10))
+
+  (eval '[inc 10])
+  (trampoline (:k (interpret '[x 10])) 5)
+  (eval '#{(+ 5 10)})
 
 )
