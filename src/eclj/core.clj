@@ -152,6 +152,10 @@
                (list* 'let* (vec bindings*) body))
              env))))
 
+(defmethod eval-seq 'quote
+  [[_ expr] env]
+  (thunk (Quote. expr) env))
+
 (defn macro? [x]
   (and (var? x)
        (-> x meta :macro)))
@@ -186,7 +190,6 @@
 :maybe-class ;; e.g. java.lang.Integer or Long
 :maybe-host-form
 :new
-:quote
 :recur
 :set!
 :throw
@@ -277,5 +280,7 @@
   (eval '(let [x 2] x))
   (eval '(let [x 2 y 4] (+ x y)))
   (eval '(let [x 2 y 4 z 6] (+ x y z)))
+
+  (eval ''x)
 
 )
