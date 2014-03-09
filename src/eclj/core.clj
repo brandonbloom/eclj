@@ -134,6 +134,16 @@
   [[_ sym] env]
   (raise (Var. sym)))
 
+(defmethod eval-seq 'do
+  [[_ & body] env]
+  (if (empty? body)
+    (Answer. nil)
+    (let [x (first body)
+          f (thunk (first body) env)]
+      (if-let [xs (next body)]
+        (handle f (fn [_] (thunk (cons 'do xs) env)))
+        f))))
+
 (defn macro? [x]
   (and (var? x)
        (-> x meta :macro)))
@@ -249,6 +259,11 @@
   (eval '[inc 10])
   (trampoline (:k (interpret '[x 10])) 5)
   (eval '#{(+ 5 10)})
+
+  (eval '(do))
+  (eval '(do :x))
+  (eval '(do (prn :x) :y))
+  (eval '(do (prn :x) (prn :y) :z))
 
   (eval '(-> 5 inc))
 
