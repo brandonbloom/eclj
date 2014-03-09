@@ -143,6 +143,15 @@
         (handle f (fn [_] (thunk (cons 'do xs) env)))
         f))))
 
+(defmethod eval-seq 'let*
+  [[_ bindings & body] env]
+  (if (empty? bindings)
+    (thunk (list* 'do body) env)
+    (let [[sym init & bindings*] bindings]
+      (thunk (Let. sym init
+               (list* 'let* (vec bindings*) body))
+             env))))
+
 (defn macro? [x]
   (and (var? x)
        (-> x meta :macro)))
@@ -171,7 +180,6 @@
 :host-field
 :host-interop ;; either field access or no-args method call
 :invoke
-:let
 :letfn
 :local
 :loop
@@ -264,5 +272,10 @@
   (eval '(do (prn :x) (prn :y) :z))
 
   (eval '(-> 8 inc (- 3)))
+
+  (eval '(let [] 1))
+  (eval '(let [x 2] x))
+  (eval '(let [x 2 y 4] (+ x y)))
+  (eval '(let [x 2 y 4 z 6] (+ x y z)))
 
 )
