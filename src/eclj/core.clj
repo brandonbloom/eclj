@@ -17,7 +17,7 @@
 
 ;;; Actions
 (defrecord Invoke [f args])
-(defrecord Var [sym])
+(defrecord Resolve [sym])
 ;; Conditions
 ;TODO: Revisit these to offer more useful restarts.
 (defrecord Undefined [sym])
@@ -122,6 +122,8 @@
 (defrecord Expand [macro form]
   Expression
   (-eval [_ env]
+
+
     (->Answer (apply macro form env (next form)))
 
     ))
@@ -132,7 +134,7 @@
 
 (defmethod eval-seq 'var
   [[_ sym] env]
-  (raise (Var. sym)))
+  (raise (Resolve. sym)))
 
 (defmethod eval-seq 'do
   [[_ & body] env]
@@ -165,9 +167,7 @@
 ;; Ops from tools.analyzer
 :binding
 :catch
-:const
 :def
-:do
 :fn
 :fn-method
 :host-call
@@ -193,11 +193,12 @@
   IEnvironment
 
   (-lookup [_ sym]
-    (if-let [var (resolve sym)]
-      (Answer. var)
-      (if-let [[_ val] (find locals sym)]
-        (Answer. val)
-        (raise (Undefined. sym)))))
+    (if-let [[_ val] (find locals sym)]
+      (Answer. val)
+      (Effect. (Resolve. sym)
+               #(if %
+                  (Answer. %)
+                  (raise (Undefined. sym))))))
 
   (-extend [this sym val]
     (assoc-in this [:locals sym] val))
@@ -208,8 +209,8 @@
 (def root-handlers
   {Invoke (fn [{:keys [f args]}]
             (apply f args))
-   Var (fn [{:keys [sym]}]
-         (resolve sym))})
+   Resolve (fn [{:keys [sym]}]
+             (resolve sym))})
 
 (defn interpret [expr]
   (loop [f #(-eval expr (Environment. {}))]
