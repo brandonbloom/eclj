@@ -48,6 +48,8 @@
     :else (unexpected x)))
 
 
+(declare ->Fn symbolic-fn?)
+
 (defmulti eval-seq (fn [s env] (first s)))
 
 (extend-protocol Expression
@@ -108,11 +110,13 @@
 
 (defrecord Apply [f args]
   Expression
-  (-eval [_ env]
-    ;TODO: Directly evaluate symbols, keywords, and symbolic pure functions.
-    (if (ifn? f)
-      (raise (Invoke. f args))
-      (raise (NotCallable. f args)))))
+  (-eval [_ _]
+    (cond
+      (symbolic-fn? f) (let [{:keys [expr env param]} f]
+                         (thunk expr (-extend env param args)))
+      ;TODO: Directly evaluate symbols & keywords?
+      (ifn? f) (raise (Invoke. f args))
+      :else (raise (NotCallable. f args)))))
 
 (defrecord Quote [expr]
   Expression
@@ -156,6 +160,39 @@
   [[_ expr] env]
   (thunk (Quote. expr) env))
 
+(defmethod eval-seq 'fn*
+  [[_ & fn-tail] env]
+  ;;TODO: Better parsing & validation.
+  (let [[name impl] (if (symbol? (first fn-tail))
+                      [(first fn-tail) (next fn-tail)]
+                      [nil fn-tail])
+        methods (for [[sig & body] (if (vector? (first impl))
+                                     (list impl)
+                                     impl)]
+                  [sig body])
+        max-fixed (apply max-key
+                         (fn [[sig body]]
+                           (count (take-while (complement #{'&}) sig)))
+                         methods)
+        arity-groups (group-by (fn [[sig body]]
+                                 (if (some #{'&} sig)
+                                   :variadic
+                                   :fixed))
+                               methods)
+        arity-err (list 'assert false "Arity error")
+        param (gensym "arg__")
+        bind (fn [[sig body]]
+               (list* 'let [sig param] body))
+        cases (mapcat (fn [[sig body :as method]]
+                        [(count sig) (bind method)])
+                      (:fixed arity-groups))
+        else (if-let [variadic (-> arity-groups :variadic first)]
+               (bind variadic)
+               arity-err)
+        expr (list* 'condp '= (list 'count param)
+                    (concat cases [else]))]
+    (Answer. (->Fn name param expr env))))
+
 (defn macro? [x]
   (and (var? x)
        (-> x meta :macro)))
@@ -178,8 +215,6 @@
 :binding
 :catch
 :def
-:fn
-:fn-method
 :host-call
 :host-field
 :host-interop ;; either field access or no-args method call
@@ -220,23 +255,90 @@
    Resolve (fn [{:keys [sym]}]
              (resolve sym))})
 
-(defn interpret [expr]
-  (loop [f #(-eval expr (Environment. {}))]
-    (let [x (f)]
-      (cond
-        (fn? x) (recur x)
-        (answer? x) x
-        (effect? x) (let [{:keys [action k]} x]
-                      (if-let [handler (root-handlers (class action))]
-                        (recur #(k (handler action)))
-                        x))
-        :else (unexpected x)))))
+(def empty-env (Environment. {}))
 
-(defn eval [expr]
-  (let [x (interpret expr)]
-    (if (answer? x)
-      (:value x)
-      (throw (ex-info (pr-str (:action x)) x)))))
+(defn interpret
+  ([expr] (interpret empty-env))
+  ([expr env]
+   (loop [f #(-eval expr env)]
+     (let [x (f)]
+       (cond
+         (fn? x) (recur x)
+         (answer? x) x
+         (effect? x) (let [{:keys [action k]} x]
+                       (if-let [handler (root-handlers (class action))]
+                         (recur #(k (handler action)))
+                         x))
+         :else (unexpected x))))))
+
+(defn eval
+  ([expr] (eval expr empty-env))
+  ([expr env]
+   (let [x (interpret expr env)]
+     (if (answer? x)
+       (:value x)
+       (throw (ex-info (pr-str (:action x)) x))))))
+
+(defrecord Fn [name param expr env]
+
+  ;; Sketchy that I'm overriding defrecord's IFn implementation, but
+  ;; it's necessary for Clojure interop. Also, IFn is always ugly.
+  clojure.lang.IFn
+
+  (invoke [this]
+    (eval (Apply. this []) env))
+  (invoke [this a]
+    (eval (Apply. this [a]) env))
+  (invoke [this a b]
+    (eval (Apply. this [a b]) env))
+  (invoke [this a b c]
+    (eval (Apply. this [a b c]) env))
+  (invoke [this a b c d]
+    (eval (Apply. this [a b c d]) env))
+  (invoke [this a b c d e]
+    (eval (Apply. this [a b c d e]) env))
+  (invoke [this a b c d e f]
+    (eval (Apply. this [a b c d e f]) env))
+  (invoke [this a b c d e f g]
+    (eval (Apply. this [a b c d e f g]) env))
+  (invoke [this a b c d e f g h]
+    (eval (Apply. this [a b c d e f g h]) env))
+  (invoke [this a b c d e f g h i]
+    (eval (Apply. this [a b c d e f g h i]) env))
+  (invoke [this a b c d e f g h i j]
+    (eval (Apply. this [a b c d e f g h i j]) env))
+  (invoke [this a b c d e f g h i j k]
+    (eval (Apply. this [a b c d e f g h i j k]) env))
+  (invoke [this a b c d e f g h i j k l]
+    (eval (Apply. this [a b c d e f g h i j k l]) env))
+  (invoke [this a b c d e f g h i j k l m]
+    (eval (Apply. this [a b c d e f g h i j k l m]) env))
+  (invoke [this a b c d e f g h i j k l m n]
+    (eval (Apply. this [a b c d e f g h i j k l m n]) env))
+  (invoke [this a b c d e f g h i j k l m n o]
+    (eval (Apply. this [a b c d e f g h i j k l m n o]) env))
+  (invoke [this a b c d e f g h i j k l m n o p]
+    (eval (Apply. this [a b c d e f g h i j k l m n o p]) env))
+  (invoke [this a b c d e f g h i j k l m n o p q]
+    (eval (Apply. this [a b c d e f g h i j k l m n o p q]) env))
+  (invoke [this a b c d e f g h i j k l m n o p q r]
+    (eval (Apply. this [a b c d e f g h i j k l m n o p q r]) env))
+  (invoke [this a b c d e f g h i j k l m n o p q r s]
+    (eval (Apply. this [a b c d e f g h i j k l m n o p q r s]) env))
+  (invoke [this a b c d e f g h i j k l m n o p q r s t]
+    (eval (Apply. this [a b c d e f g h i j k l m n o p q r s t]) env))
+  (invoke [this a b c d e f g h i j k l m n o p q r s t rest]
+    (eval (Apply. this
+                  (concat [a b c d e f g h i j k l m n o p q r s t] rest))
+          env))
+
+  (applyTo [this args]
+    (eval (Apply. this args) env))
+
+  )
+
+(defn symbolic-fn? [x]
+  (instance? eclj.core.Fn x))
 
 (comment
 
@@ -282,5 +384,16 @@
   (eval '(let [x 2 y 4 z 6] (+ x y z)))
 
   (eval ''x)
+
+  (eval '(fn [x] x))
+  (eval '(fn ([x] x)))
+  (eval '(fn f [x] x))
+  (eval '(fn f ([x] x)))
+  (eval '(fn ([] 0) ([x] 1) ([x y] 2)))
+  (eval '(fn ([] 0) ([x] 1) ([x y] 2) ([x y & zs] :n)))
+
+  (eval '((fn [x] x) 5))
+  (eval '(apply (fn [& args] (apply + args)) (range 1000)))
+  ((eval '(fn [x] x)) 5)
 
 )
