@@ -131,15 +131,19 @@
   (and (var? x)
        (-> x meta :macro)))
 
+(defn apply-args [f args env]
+  (handle (eval-items (reverse args) env)
+          #(thunk (Apply. f %) env)))
+
 (defmethod eval-seq :default
   [[head & tail :as form] env]
   (if (symbol? head)
     (handle (-lookup env head)
-            #(thunk (if (macro? %)
-                      (Expand. % form)
-                      (Apply. % tail))
-                    env))
-    (thunk (Apply. (thunk head env) tail) env)))
+            #(if (macro? %)
+               (thunk (Expand. % form) env)
+               (apply-args % tail env)))
+    (handle (thunk head env)
+            #(apply-args % tail env))))
 
 ;TODO: Support pure symbolic fns, evaluate directly.
 
@@ -234,7 +238,9 @@
   (eval '(if false 5))
   (eval '(if xx 5))
 
-  (eval '(+ 5 10))
+  (eval '(- 10 3))
+  (eval '(+ (inc 5) (inc 10)))
+  ;(eval '(#'* (inc 4)))
 
   (eval '[inc 10])
   (trampoline (:k (interpret '[x 10])) 5)
