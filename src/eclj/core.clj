@@ -261,10 +261,9 @@
 
 (defrecord Fn [name param expr env]
 
-  ;; Sketchy that I'm overriding defrecord's IFn implementation, but
-  ;; it's necessary for Clojure interop. Also, IFn is always ugly.
   clojure.lang.IFn
 
+  ;; *cringe*
   (invoke [this]
     (eval (Apply. this []) env))
   (invoke [this a]
