@@ -211,26 +211,6 @@
     (handle (thunk head env)
             #(apply-args % tail env))))
 
-;; Ops from tools.analyzer
-:binding
-:catch
-:def
-:host-call
-:host-field
-:host-interop ;; either field access or no-args method call
-:invoke
-:letfn
-:local
-:loop
-:maybe-class ;; e.g. java.lang.Integer or Long
-:maybe-host-form
-:new
-:recur
-:set!
-:throw
-:try
-:with-meta
-
 (defrecord Environment [locals]
 
   IEnvironment
@@ -395,5 +375,25 @@
   (eval '((fn [x] x) 5))
   (eval '(apply (fn [& args] (apply + args)) (range 1000)))
   ((eval '(fn [x] x)) 5)
+
+  ;;TODO: Remaining ops from tools.analyzer
+  :binding
+  :catch
+  :def
+  :host-call
+  :host-field
+  :host-interop ;; either field access or no-args method call
+  :invoke
+  :letfn
+  :local
+  :loop
+  :maybe-class ;; e.g. java.lang.Integer or Long
+  :maybe-host-form
+  :new
+  :recur
+  :set!
+  :throw
+  :try
+  :with-meta
 
 )
