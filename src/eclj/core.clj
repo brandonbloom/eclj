@@ -15,13 +15,6 @@
 (defrecord Answer [value])
 (defrecord Effect [action k])
 
-;;; Special Forms
-(defrecord Quote [expr])
-(defrecord Let [sym init expr])
-(defrecord If [test then else])
-(defrecord Apply [f args])
-(defrecord Expand [macro form])
-
 ;;; Actions
 (defrecord Invoke [f args])
 ;; Conditions
@@ -52,27 +45,6 @@
 
 (defmulti eval-seq (fn [s env] (first s)))
 
-(defmethod eval-seq 'if
-  [[_ test then else] env]
-  (thunk (If. test then else) env))
-
-(defn macro? [x]
-  (and (var? x)
-       (-> x meta :macro)))
-
-(defmethod eval-seq :default
-  [[head & tail :as form] env]
-  (if (symbol? head)
-    (handle (-lookup env head)
-            #(thunk (if (macro? %)
-                      (Expand. % form)
-                      (Apply. % tail))
-                    env))
-    (thunk (Apply. (thunk head env) tail) env)))
-
-;TODO: Treat external Fn invokes as an effect.
-;TODO: Support pure symbolic fns, evaluate directly.
-
 (extend-protocol Expression
 
   nil
@@ -93,32 +65,67 @@
       (Answer. list)
       (eval-seq list env)))
 
-  Let
-  (-eval [{:keys [sym init expr]} env]
-    (handle (thunk init env)
-            #(thunk expr (-extend env sym %))))
+)
 
-  If
-  (-eval [{:keys [test then else] :as xx} env]
+;(for [t [clojure.lang.PersistentVector]]
+;  (extend t
+;(defn eval-coll [coll env]
+;  )
+
+(defrecord Let [sym init expr]
+  Expression
+  (-eval [_ env]
+    (handle (thunk init env)
+            #(thunk expr (-extend env sym %)))))
+
+(defrecord If [test then else]
+  Expression
+  (-eval [_ env]
     (if (symbol? test)
       (handle (-lookup env test)
               #(if % (thunk then env) (thunk else env)))
       (thunk (let [x (gensym)]
                (Let. x test
                  (If. x then else)))
-             env)))
+             env))))
 
-  Apply
-  (-eval [{:keys [f args]} env]
+(defrecord Apply [f args]
+  Expression
+  (-eval [_ env]
     ;;TODO: Handle symbols, keywords, etc directly.
     (if (ifn? f)
       (raise (Invoke. f args))
-      (raise (NotCallable. f args))))
+      (raise (NotCallable. f args)))))
 
-  )
+(defrecord Quote [expr]
+  Expression
+  (-eval [_ env]
+    (Answer. expr)))
 
-;;TODO: Generalized collection-eval for vectors, maps, sets, etc
+(defrecord Expand [macro form]
+  Expression
+  (-eval [_ env] ;TODO
+    ))
 
+(defmethod eval-seq 'if
+  [[_ test then else] env]
+  (thunk (If. test then else) env))
+
+(defn macro? [x]
+  (and (var? x)
+       (-> x meta :macro)))
+
+(defmethod eval-seq :default
+  [[head & tail :as form] env]
+  (if (symbol? head)
+    (handle (-lookup env head)
+            #(thunk (if (macro? %)
+                      (Expand. % form)
+                      (Apply. % tail))
+                    env))
+    (thunk (Apply. (thunk head env) tail) env)))
+
+;TODO: Support pure symbolic fns, evaluate directly.
 
 ;; Ops from tools.analyzer
 :binding
@@ -171,14 +178,6 @@
 (def root-handlers
   {Invoke (fn [{:keys [f args]}]
             (apply f args))})
-
-(extend-protocol Action
-
-  java.lang.Object
-  (-execute [action]
-    action)
-
-  )
 
 (defn interpret [expr]
   (loop [f #(-eval expr (Environment. {}))]
