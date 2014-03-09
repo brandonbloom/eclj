@@ -35,12 +35,16 @@
 (defn effect? [x]
   (instance? Effect x))
 
+(defn unexpected [x]
+  (throw (ex-info (str "Unexpected " (pr-str (class x)))
+                  {:value x})))
+
 (defn handle [x k]
   (cond
     (answer? x) #(k (:value x))
     (effect? x) (Effect. (:action x) #(handle ((:k x) %) k))
     (ifn? x) #(handle (x) k)
-    :else (throw (Exception. (str "Unable to handle: " x)))))
+    :else (unexpected x)))
 
 
 (defmulti eval-seq (fn [s env] (first s)))
@@ -201,7 +205,7 @@
                       (if-let [handler (root-handlers (class action))]
                         (recur #(k (handler action)))
                         x))
-        :else (throw (Exception. (str "Unable to interpret: " x)))))))
+        :else (unexpected x)))))
 
 (defn eval [expr]
   (let [x (interpret expr)]
