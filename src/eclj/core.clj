@@ -504,16 +504,13 @@
               (catch :default e e)
               (finally (prn 2))))
 
-  (do
-    (eval '(def declared))
-    (eval '(def defined 1))
-    (eval '(def redefined 2))
-    (eval '(def redefined 3))
-    (eval '(def foo "bar" 4)))
+  (eval '(def declared))
+  (eval '(def defined 1))
+  (eval '(do (def redefined 2) (def redefined 3)))
+  (eval '(def foo "bar" 4))
   (list declared defined redefined foo (-> #'foo meta :doc))
 
   ;;TODO: Remaining ops from tools.analyzer
-  :binding
   :host-call
   :host-field
   :host-interop ;; either field access or no-args method call
