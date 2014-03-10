@@ -211,6 +211,47 @@
     (handle (thunk head env)
             #(apply-args % tail env))))
 
+(defn parse-try [[_ & body]]
+  (let [catch? (every-pred seq? #(= (first %) 'catch))
+        default? (every-pred catch? #(= (second %) :default))
+        finally? (every-pred seq? #(= (first %) 'finally))]
+    (loop [parser {:state :start :forms body
+                   :body [] :cblocks [] :dblock nil :fblock nil}]
+      (if (seq? (:forms parser))
+        (let [[form & forms*] (:forms parser)
+              parser* (assoc parser :forms forms*)]
+          (case (:state parser)
+            :start
+              (cond
+                (catch? form) (recur (assoc parser :state :catches))
+                (finally? form) (recur (assoc parser :state :finally))
+                :else (recur (update-in parser* [:body] conj form)))
+            :catches
+              (cond
+                (default? form)
+                  (recur (assoc parser* :dblock form :state :finally))
+                (catch? form)
+                  (recur (update-in parser* [:cblocks] conj form))
+                (finally? form)
+                  (recur (assoc parser :state :finally))
+                :else
+                  (throw (Exception. "Invalid try form")))
+            :finally
+              (recur (assoc parser* :fblock form :state :done))
+            :done
+              (throw (Exception. "Unexpected form after finally"))))
+        parser))))
+
+(defmethod eval-seq 'try
+  [expr env]
+  (let [{:keys [body cblocks dblock fblock]} (parse-try expr)]
+    (let [fthunk (thunk (list* 'do (next fblock)) env)]
+      ;;TODO handle cblocks and dblock
+      (handle (thunk (list* 'do body) env)
+              (fn [x]
+                (handle fthunk
+                        (fn [_] (Answer. x))))))))
+
 (defrecord Environment [locals]
 
   IEnvironment
@@ -374,6 +415,9 @@
   (eval '((fn [x] x) 5))
   (eval '(apply (fn [& args] (apply + args)) (range 1000)))
   ((eval '(fn [x] x)) 5)
+
+  (eval '(try 1))
+  (eval '(try 1 (finally (prn 2))))
 
   ;;TODO: Remaining ops from tools.analyzer
   :binding
