@@ -23,6 +23,7 @@
 (defrecord Declare [sym])
 (defrecord Define [sym value])
 (defrecord New [class args])
+(defrecord Interop [object member args])
 ;; Conditions
 ;TODO: Revisit these to offer more useful restarts.
 (defrecord Undefined [sym])
@@ -309,6 +310,16 @@
               (handle (eval-items (vec args) env)
                       #(raise (New. class %)))))))
 
+(defmethod eval-seq '.
+  [[_ expr & body] env]
+  (let [[member args] (if (and (= (count body) 1) (seq? (first body)))
+                        [(ffirst body) (nfirst body)]
+                        [(first body) (next body)])]
+    (handle (thunk expr env)
+            (fn [object]
+              (handle (eval-items (vec args) env)
+                      #(raise (Interop. object member %)))))))
+
 (defn macro? [x]
   (and (var? x)
        (-> x meta :macro)))
@@ -320,10 +331,17 @@
 (defmethod eval-seq :default
   [[head & tail :as form] env]
   (if (symbol? head)
-    (handle (-lookup env head)
-            #(if (macro? %)
-               (thunk (Expand. % form) env)
-               (apply-args % tail env)))
+    (let [s (str head)]
+      (cond
+        (.endsWith s ".") (let [class (symbol (apply str (butlast s)))]
+                            (thunk (list* 'new class tail) env))
+        (.startsWith s ".") (let [member (symbol (apply str (next s)))
+                                  [obj & args] tail]
+                              (thunk (list* '. obj member args) env))
+        :else (handle (-lookup env head)
+                      #(if (macro? %)
+                         (thunk (Expand. % form) env)
+                         (apply-args % tail env)))))
     (handle (thunk head env)
             #(apply-args % tail env))))
 
@@ -344,25 +362,54 @@
 
   )
 
+(defn maybe-class [sym]
+  (try
+    (clojure.lang.RT/classForName (name sym))
+    (catch ClassNotFoundException _ nil)))
 
 (def root-handlers
   {
+
    Deref (fn [{:keys [x]}]
            (deref x))
+
    Invoke (fn [{:keys [f args]}]
             (apply f args))
+
    Resolve (fn [{:keys [sym]}]
-             (or (resolve sym)
-                 (try (clojure.lang.RT/classForName (name sym))
-                      (catch Throwable e nil))))
+             (or (resolve sym) (maybe-class sym)))
+
    Declare (fn [{:keys [sym]}]
              (intern *ns* sym))
+
    Define (fn [{:keys [sym value]}]
                (intern *ns* sym value))
+
    New (fn [{:keys [class args]}]
          (let [types (into-array (map clojure.core/class args))
                ctor (.getConstructor class types)]
            (.newInstance ctor (into-array args))))
+
+   Interop (fn [{:keys [object member args]}]
+             (let [s (str member)
+                   s (if (.startsWith s "-")
+                       (apply str (next s))
+                       s)]
+               (if (zero? (count args))
+                 (if (instance? Class object)
+                   (try
+                     (clojure.lang.Reflector/getStaticField object s)
+                     (catch Exception e
+                       (clojure.lang.Reflector/invokeStaticMethod
+                         object s clojure.lang.RT/EMPTY_ARRAY)))
+                   (clojure.lang.Reflector/invokeNoArgInstanceMember object s))
+                 (let [args* (into-array args)]
+                   (if (instance? Class object)
+                     (clojure.lang.Reflector/invokeStaticMethod
+                         object s args*)
+                     (clojure.lang.Reflector/invokeInstanceMember
+                       s object args*))))))
+
    })
 
 (def empty-env (Environment. {}))
@@ -529,14 +576,28 @@
   (list declared defined redefined foo (-> #'foo meta :doc))
 
   (eval '(new String "abc"))
+  (eval '(String. "xyz"))
+
+  (eval '(. "abc" toUpperCase))
+  (eval '(. "abc" (toUpperCase)))
+  (eval '(.toUpperCase "abc"))
+  (eval '(. "abc" startsWith "x"))
+  (eval '(. "abc" (startsWith "x")))
+  (eval '(.startsWith "abc" "x"))
+
+  (eval 'Byte)
+  (eval '(. Byte TYPE))
+  (eval '(. Byte (TYPE)))
+  (eval '(. String valueOf true))
+  (eval '(. String (valueOf true)))
+  (eval '(.valueOf String true))
+
+  ;(eval 'Byte/TYPE)
+  ;(eval '(String/valueOf true))
 
   ;;TODO: Remaining ops from tools.analyzer
-  :host-call
-  :host-field
-  :host-interop ;; either field access or no-args method call
   :letfn
   :loop
-  :maybe-host-form
   :recur
   :set!
   :with-meta
