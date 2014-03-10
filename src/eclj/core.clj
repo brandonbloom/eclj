@@ -404,56 +404,64 @@
 (def root-handlers
   {
 
-   Deref (fn [{:keys [x]}]
-           (deref x))
+   Deref
+   (fn [{:keys [x]}]
+     (deref x))
 
-   Invoke (fn [{:keys [f args]}]
-            (apply f args))
+   Invoke
+   (fn [{:keys [f args]}]
+     (apply f args))
 
-   Resolve (fn [{:keys [sym]}]
-             (or (maybe-resolve sym)
-                 (let [c (maybe-resolve (symbol (namespace sym)))
-                       n (name sym)]
-                   (when (instance? Class c)
-                     (try
-                       (.get (.getField c n) c)
-                       (catch NoSuchFieldException _
-                         (staticfn c n)))))))
+   Resolve
+   (fn [{:keys [sym]}]
+     (or (maybe-resolve sym)
+         (let [c (maybe-resolve (symbol (namespace sym)))
+               n (name sym)]
+           (when (instance? Class c)
+             (try
+               (.get (.getField c n) c)
+               (catch NoSuchFieldException _
+                 (staticfn c n)))))))
 
-   Declare (fn [{:keys [sym]}]
-             (intern *ns* sym))
+   Declare
+   (fn [{:keys [sym]}]
+     (intern *ns* sym))
 
-   Define (fn [{:keys [sym value]}]
-            (let [var (intern *ns* sym value)]
-              (when (-> sym meta :dynamic)
-                (.setDynamic var))
-              var))
+   Define
+   (fn [{:keys [sym value]}]
+     (let [var (intern *ns* sym value)]
+       (when (-> sym meta :dynamic)
+         (.setDynamic var))
+       var))
 
-   New (fn [{:keys [class args]}]
-         (let [types (into-array (map clojure.core/class args))
-               ctor (.getConstructor class types)]
-           (.newInstance ctor (into-array args))))
+   New
+   (fn [{:keys [class args]}]
+     (let [types (into-array (map clojure.core/class args))
+           ctor (.getConstructor class types)]
+       (.newInstance ctor (into-array args))))
 
-   Interop (fn [{:keys [object member args]}]
-             (let [s (str member)
-                   s (if (.startsWith s "-")
-                       (apply str (next s))
-                       s)]
-               (if (instance? Class object)
-                 (apply static-invoke object s args)
-                 (if (zero? (count args))
-                   (Reflector/invokeNoArgInstanceMember object s)
-                   (Reflector/invokeInstanceMember
-                       s object (into-array args))))))
+   Interop
+   (fn [{:keys [object member args]}]
+     (let [s (str member)
+           s (if (.startsWith s "-")
+               (apply str (next s))
+               s)]
+       (if (instance? Class object)
+         (apply static-invoke object s args)
+         (if (zero? (count args))
+           (Reflector/invokeNoArgInstanceMember object s)
+           (Reflector/invokeInstanceMember s object (into-array args))))))
 
-   AssignVar (fn [{:keys [var value]}]
-               (var-set var value))
+   AssignVar
+   (fn [{:keys [var value]}]
+     (var-set var value))
 
-   AssignField (fn [{:keys [object field value]}] ;TODO: Test this.
-                 (let [field (name field)]
-                   (if (instance? Class object)
-                     (Reflector/setStaticField object field value)
-                     (Reflector/setInstanceField object field value))))
+   AssignField ;TODO: Test this.
+   (fn [{:keys [object field value]}]
+     (let [field (name field)]
+       (if (instance? Class object)
+         (Reflector/setStaticField object field value)
+         (Reflector/setInstanceField object field value))))
 
    })
 
