@@ -353,7 +353,8 @@
             (apply f args))
    Resolve (fn [{:keys [sym]}]
              (or (resolve sym)
-                 (clojure.lang.RT/classForName (name sym))))
+                 (try (clojure.lang.RT/classForName (name sym))
+                      (catch Throwable e nil))))
    Declare (fn [{:keys [sym]}]
              (intern *ns* sym))
    Define (fn [{:keys [sym value]}]
