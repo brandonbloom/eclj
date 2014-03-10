@@ -19,6 +19,8 @@
 (defrecord Invoke [f args])
 (defrecord Resolve [sym])
 (defrecord Throw [error])
+(defrecord Declare [sym])
+(defrecord Define [sym value])
 ;; Conditions
 ;TODO: Revisit these to offer more useful restarts.
 (defrecord Undefined [sym])
@@ -282,6 +284,18 @@
   (handle (thunk expr env)
           #(raise (Throw. %))))
 
+(defmethod eval-seq 'def
+  [[_ & body] env]
+  (let [[sym doc expr] (case (count body)
+                         1 [(first body) nil clojure.lang.Var$Unbound]
+                         2 [(first body) nil (second body)]
+                         3 body)
+        sym* (vary-meta sym assoc :doc doc)]
+    (if (> (count body) 1)
+      (handle (thunk expr env)
+              #(raise (Define. sym* %)))
+      (raise (Declare. sym*)))))
+
 (defn macro? [x]
   (and (var? x)
        (-> x meta :macro)))
@@ -322,7 +336,11 @@
   {Invoke (fn [{:keys [f args]}]
             (apply f args))
    Resolve (fn [{:keys [sym]}]
-             (resolve sym))})
+             (resolve sym))
+   Declare (fn [{:keys [sym]}]
+             (intern *ns* sym))
+   Define (fn [{:keys [sym value]}]
+               (intern *ns* sym value))})
 
 (def empty-env (Environment. {}))
 
@@ -477,17 +495,22 @@
               (catch :default e e)
               (finally (prn 2))))
 
+  (do
+    (eval '(def declared))
+    (eval '(def defined 1))
+    (eval '(def redefined 2))
+    (eval '(def redefined 3))
+    (eval '(def foo "bar" 4)))
+  (list declared defined redefined foo (-> #'foo meta :doc))
+
   ;;TODO: Remaining ops from tools.analyzer
   :binding
-  :def
   :host-call
   :host-field
   :host-interop ;; either field access or no-args method call
-  :invoke
   :letfn
   :local
   :loop
-  :maybe-class ;; e.g. java.lang.Integer or Long
   :maybe-host-form
   :new
   :recur
