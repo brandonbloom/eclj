@@ -16,6 +16,7 @@
 (defrecord Effect [action k])
 
 ;;; Actions
+(defrecord Deref [x])
 (defrecord Invoke [f args])
 (defrecord Resolve [sym])
 (defrecord Throw [error])
@@ -70,7 +71,10 @@
 
   clojure.lang.Symbol
   (-eval [sym env]
-    (-lookup env sym))
+    (handle (-lookup env sym)
+            #(if (var? %)
+               (raise (Deref. %))
+               (Answer. %))))
 
   clojure.lang.ISeq
   (-eval [list env]
@@ -106,7 +110,7 @@
   Expression
   (-eval [_ env]
     (handle (thunk init env)
-            #(thunk (Bind. sym % expr)))))
+            #(thunk (Bind. sym % expr) env))))
 
 (defrecord If [test then else]
   Expression
@@ -333,7 +337,9 @@
 
 
 (def root-handlers
-  {Invoke (fn [{:keys [f args]}]
+  {Deref (fn [{:keys [x]}]
+           (deref x))
+   Invoke (fn [{:keys [f args]}]
             (apply f args))
    Resolve (fn [{:keys [sym]}]
              (resolve sym))
@@ -433,14 +439,17 @@
 
   (eval 'inc)
   (eval 'foo)
-
   (eval #'inc)
+  (eval '(identity inc))
 
   (eval ())
 
-  (eval (Let. 'x 1 2))
-  (eval (Let. 'x 1 'x))
-  (eval (Let. 'x 1 'y))
+  (eval (Bind. 'x '(+ 1 2) 0))
+  (eval (Bind. 'x '(+ 1 2) 'x))
+
+  (eval (Let. 'x (+ 1 2) 0))
+  (eval (Let. 'x (+ 1 2) 'x))
+  (eval (Let. 'x (+ 1 2) 'y))
   (trampoline (:k (interpret (Let. 'x 1 'y))) 5)
 
   (eval '(if true 5 10))
@@ -509,7 +518,6 @@
   :host-field
   :host-interop ;; either field access or no-args method call
   :letfn
-  :local
   :loop
   :maybe-host-form
   :new
