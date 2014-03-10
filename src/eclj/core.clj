@@ -24,8 +24,9 @@
 (defrecord Define [sym value])
 (defrecord New [class args])
 (defrecord Interop [object member args])
+
 ;; Conditions
-;TODO: Revisit these to offer more useful restarts.
+; These actions are used as recoverable exceptions, not yet true conditions.
 (defrecord Undefined [sym])
 (defrecord NotCallable [f args])
 
@@ -362,10 +363,28 @@
 
   )
 
+(defn static-invoke [class member & args]
+  (if (zero? (count args))
+    (try
+      (clojure.lang.Reflector/getStaticField class member)
+      (catch Exception e
+        (clojure.lang.Reflector/invokeStaticMethod
+          class member clojure.lang.RT/EMPTY_ARRAY)))
+    (clojure.lang.Reflector/invokeStaticMethod
+      class member (into-array args))))
+
+(defn staticfn [class member]
+  (fn [& args]
+    (apply static-invoke class member args)))
+
 (defn maybe-class [sym]
   (try
     (clojure.lang.RT/classForName (name sym))
     (catch ClassNotFoundException _ nil)))
+
+(defn maybe-resolve [sym]
+  (or (resolve sym)
+      (maybe-class sym)))
 
 (def root-handlers
   {
@@ -377,7 +396,14 @@
             (apply f args))
 
    Resolve (fn [{:keys [sym]}]
-             (or (resolve sym) (maybe-class sym)))
+             (or (maybe-resolve sym)
+                 (let [c (maybe-resolve (symbol (namespace sym)))
+                       n (name sym)]
+                   (when (instance? Class c)
+                     (try
+                       (.get (.getField c n) c)
+                       (catch NoSuchFieldException _
+                         (staticfn c n)))))))
 
    Declare (fn [{:keys [sym]}]
              (intern *ns* sym))
@@ -395,20 +421,12 @@
                    s (if (.startsWith s "-")
                        (apply str (next s))
                        s)]
-               (if (zero? (count args))
-                 (if (instance? Class object)
-                   (try
-                     (clojure.lang.Reflector/getStaticField object s)
-                     (catch Exception e
-                       (clojure.lang.Reflector/invokeStaticMethod
-                         object s clojure.lang.RT/EMPTY_ARRAY)))
-                   (clojure.lang.Reflector/invokeNoArgInstanceMember object s))
-                 (let [args* (into-array args)]
-                   (if (instance? Class object)
-                     (clojure.lang.Reflector/invokeStaticMethod
-                         object s args*)
-                     (clojure.lang.Reflector/invokeInstanceMember
-                       s object args*))))))
+               (if (instance? Class object)
+                 (apply static-invoke object s args)
+                 (if (zero? (count args))
+                   (clojure.lang.Reflector/invokeNoArgInstanceMember object s)
+                   (clojure.lang.Reflector/invokeInstanceMember
+                       s object (into-array args))))))
 
    })
 
@@ -592,8 +610,8 @@
   (eval '(. String (valueOf true)))
   (eval '(.valueOf String true))
 
-  ;(eval 'Byte/TYPE)
-  ;(eval '(String/valueOf true))
+  (eval 'Byte/TYPE)
+  (eval '(String/valueOf true))
 
   ;;TODO: Remaining ops from tools.analyzer
   :letfn
