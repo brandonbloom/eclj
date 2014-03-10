@@ -415,13 +415,14 @@
    Resolve
    (fn [{:keys [sym]}]
      (or (maybe-resolve sym)
-         (let [c (maybe-resolve (symbol (namespace sym)))
-               n (name sym)]
-           (when (instance? Class c)
-             (try
-               (.get (.getField c n) c)
-               (catch NoSuchFieldException _
-                 (staticfn c n)))))))
+         (when-let [ns (namespace sym)]
+           (let [c (maybe-resolve (symbol ns))
+                 n (name sym)]
+             (when (instance? Class c)
+               (try
+                 (.get (.getField c n) c)
+                 (catch NoSuchFieldException _
+                   (staticfn c n))))))))
 
    Declare
    (fn [{:keys [sym]}]
