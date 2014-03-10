@@ -473,7 +473,7 @@
    (loop [f #(-eval expr env)]
      (let [x (f)]
        (cond
-         (fn? x) (recur x)
+         (ifn? x) (recur x)
          (answer? x) x
          (effect? x) (let [{:keys [action k]} x]
                        (if-let [handler (root-handlers (class action))]
