@@ -18,6 +18,7 @@
 ;;; Actions
 (defrecord Invoke [f args])
 (defrecord Resolve [sym])
+(defrecord Throw [error])
 ;; Conditions
 ;TODO: Revisit these to offer more useful restarts.
 (defrecord Undefined [sym])
@@ -40,10 +41,13 @@
   (throw (ex-info (str "Unexpected " (pr-str (class x)))
                   {:value x})))
 
+(defn propegate [handler {:keys [action k]} nextk]
+  (Effect. action #(handler (k %) nextk)))
+
 (defn handle [x k]
   (cond
     (answer? x) #(k (:value x))
-    (effect? x) (Effect. (:action x) #(handle ((:k x) %) k))
+    (effect? x) (propegate handle x k)
     (ifn? x) #(handle (x) k)
     :else (unexpected x)))
 
@@ -91,11 +95,16 @@
            clojure.lang.PersistentVector]]
   (extend t Expression {:-eval eval-items}))
 
+(defrecord Bind [sym value expr]
+  Expression
+  (-eval [_ env]
+    (thunk expr (-extend env sym value))))
+
 (defrecord Let [sym init expr]
   Expression
   (-eval [_ env]
     (handle (thunk init env)
-            #(thunk expr (-extend env sym %)))))
+            #(thunk (Bind. sym % expr)))))
 
 (defrecord If [test then else]
   Expression
@@ -193,6 +202,34 @@
                     (concat cases [else]))]
     (Answer. (->Fn name param expr env))))
 
+(defrecord Catch [class sym expr])
+
+(defn exception-handler [catches finally env]
+  (fn handler [x k]
+    (cond
+      (answer? x) #(handle (thunk finally env)
+                           (fn [_] (fn [] (k (:value x)))))
+      (effect? x)
+        (let [error (-> x :action :error)
+              catch (some (fn [{:keys [class sym expr] :as catch}]
+                            (when (instance? class error)
+                              catch))
+                            catches)]
+          (if-let [{:keys [class sym expr]} catch]
+            #(handle (thunk (Bind. sym error expr) env)
+                     (fn [y]
+                       (handle (thunk finally env)
+                               (fn [_] (k y)))))
+            (propegate handler x ->Answer)))
+      (ifn? x) #(handler (x) k)
+      :else (unexpected x))))
+
+;;TODO: Replaces ordered-choice type-catches with a single catch block.
+(defrecord Try [body catches finally]
+  Expression
+  (-eval [_ env]
+    ((exception-handler catches finally env) (thunk body env) ->Answer)))
+
 (defn parse-try [[_ & body]]
   (let [catch? (every-pred seq? #(= (first %) 'catch))
         default? (every-pred catch? #(= (second %) :default))
@@ -226,13 +263,24 @@
 
 (defmethod eval-seq 'try
   [expr env]
-  (let [{:keys [body cblocks dblock fblock]} (parse-try expr)]
-    (let [fthunk (thunk (list* 'do (next fblock)) env)]
-      ;;TODO handle cblocks and dblock
-      (handle (thunk (list* 'do body) env)
-              (fn [x]
-                (handle fthunk
-                        (fn [_] (Answer. x))))))))
+  (let [{:keys [body cblocks dblock fblock]} (parse-try expr)
+        bexpr (list* 'do body)
+        cblocks* (if dblock
+                   (concat cblocks [(list* 'catch Throwable (nnext dblock))])
+                   cblocks)
+        fexpr (list* 'do (next fblock))]
+    ;;TODO: Ensure items are exception classes.
+    (handle (eval-items (mapv second cblocks*) env)
+            (fn [classes]
+              (let [catches (map (fn [class [_ _ sym & cbody]]
+                                   (Catch. class sym (list* 'do cbody)))
+                                 classes cblocks*)]
+                (thunk (Try. bexpr catches fexpr) env))))))
+
+(defmethod eval-seq 'throw
+  [[_ expr] env]
+  (handle (thunk expr env)
+          #(raise (Throw. %))))
 
 (defn macro? [x]
   (and (var? x)
@@ -416,12 +464,21 @@
   (eval '(apply (fn [& args] (apply + args)) (range 1000)))
   ((eval '(fn [x] x)) 5)
 
+  (eval '(throw (ex-info "err" {})))
   (eval '(try 1))
+  (eval '(try (throw (ex-info "err" {}))))
+  (eval '(try 1 (catch Throwable e 2)))
+  (eval '(try (throw (ex-info "err" {})) (catch :default e 3)))
+  (eval '(try (throw (ex-info "err" {})) (catch :default e e)))
+  (eval '(try 1 (throw (ex-info "err" {})) 2
+              (catch IllegalArgumentException e 2)))
   (eval '(try 1 (finally (prn 2))))
+  (eval '(try (throw (ex-info "err" {}))
+              (catch :default e e)
+              (finally (prn 2))))
 
   ;;TODO: Remaining ops from tools.analyzer
   :binding
-  :catch
   :def
   :host-call
   :host-field
@@ -435,8 +492,6 @@
   :new
   :recur
   :set!
-  :throw
-  :try
   :with-meta
 
 )
