@@ -22,6 +22,7 @@
 (defrecord Throw [error])
 (defrecord Declare [sym])
 (defrecord Define [sym value])
+(defrecord New [class args])
 ;; Conditions
 ;TODO: Revisit these to offer more useful restarts.
 (defrecord Undefined [sym])
@@ -300,6 +301,14 @@
               #(raise (Define. sym* %)))
       (raise (Declare. sym*)))))
 
+(defmethod eval-seq 'new
+  [[_ sym & args] env]
+  (handle (-lookup env sym)
+          (fn [class] ;TODO: Validate
+            (fn []
+              (handle (eval-items (vec args) env)
+                      #(raise (New. class %)))))))
+
 (defn macro? [x]
   (and (var? x)
        (-> x meta :macro)))
@@ -337,16 +346,23 @@
 
 
 (def root-handlers
-  {Deref (fn [{:keys [x]}]
+  {
+   Deref (fn [{:keys [x]}]
            (deref x))
    Invoke (fn [{:keys [f args]}]
             (apply f args))
    Resolve (fn [{:keys [sym]}]
-             (resolve sym))
+             (or (resolve sym)
+                 (clojure.lang.RT/classForName (name sym))))
    Declare (fn [{:keys [sym]}]
              (intern *ns* sym))
    Define (fn [{:keys [sym value]}]
-               (intern *ns* sym value))})
+               (intern *ns* sym value))
+   New (fn [{:keys [class args]}]
+         (let [types (into-array (map clojure.core/class args))
+               ctor (.getConstructor class types)]
+           (.newInstance ctor (into-array args))))
+   })
 
 (def empty-env (Environment. {}))
 
@@ -441,6 +457,7 @@
   (eval 'foo)
   (eval #'inc)
   (eval '(identity inc))
+  (eval 'Boolean)
 
   (eval ())
 
@@ -510,6 +527,8 @@
   (eval '(def foo "bar" 4))
   (list declared defined redefined foo (-> #'foo meta :doc))
 
+  (eval '(new String "abc"))
+
   ;;TODO: Remaining ops from tools.analyzer
   :host-call
   :host-field
@@ -517,7 +536,6 @@
   :letfn
   :loop
   :maybe-host-form
-  :new
   :recur
   :set!
   :with-meta
