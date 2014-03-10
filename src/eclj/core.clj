@@ -1,8 +1,10 @@
 (ns eclj.core
-  (:refer-clojure :exclude [eval]))
+  (:refer-clojure :exclude [eval])
+  (:import [clojure.lang Reflector]))
 
 
 ;;TODO: Eliminate gensym usage.
+;;TODO: Re-examine handling of metadata.
 
 
 (defprotocol Expression
@@ -24,6 +26,8 @@
 (defrecord Define [sym value])
 (defrecord New [class args])
 (defrecord Interop [object member args])
+(defrecord AssignVar [var value])
+(defrecord AssignField [object field value])
 
 ;; Conditions
 ; These actions are used as recoverable exceptions, not yet true conditions.
@@ -321,6 +325,18 @@
               (handle (eval-items (vec args) env)
                       #(raise (Interop. object member %)))))))
 
+(defmethod eval-seq 'set!
+  [[_ location expr] env]
+  (if (symbol? location)
+    (handle (-lookup env location)
+            (fn [var] ;TODO: Validate
+              (handle (thunk expr env)
+                      #(raise (AssignVar. var %)))))
+    (handle (thunk (first location) env)
+            (fn [object]
+              (handle (thunk expr env)
+                      #(raise (AssignField. object (second location) %)))))))
+
 (defn macro? [x]
   (and (var? x)
        (-> x meta :macro)))
@@ -366,12 +382,11 @@
 (defn static-invoke [class member & args]
   (if (zero? (count args))
     (try
-      (clojure.lang.Reflector/getStaticField class member)
+      (Reflector/getStaticField class member)
       (catch Exception e
-        (clojure.lang.Reflector/invokeStaticMethod
+        (Reflector/invokeStaticMethod
           class member clojure.lang.RT/EMPTY_ARRAY)))
-    (clojure.lang.Reflector/invokeStaticMethod
-      class member (into-array args))))
+    (Reflector/invokeStaticMethod class member (into-array args))))
 
 (defn staticfn [class member]
   (fn [& args]
@@ -409,7 +424,10 @@
              (intern *ns* sym))
 
    Define (fn [{:keys [sym value]}]
-               (intern *ns* sym value))
+            (let [var (intern *ns* sym value)]
+              (when (-> sym meta :dynamic)
+                (.setDynamic var))
+              var))
 
    New (fn [{:keys [class args]}]
          (let [types (into-array (map clojure.core/class args))
@@ -424,9 +442,18 @@
                (if (instance? Class object)
                  (apply static-invoke object s args)
                  (if (zero? (count args))
-                   (clojure.lang.Reflector/invokeNoArgInstanceMember object s)
-                   (clojure.lang.Reflector/invokeInstanceMember
+                   (Reflector/invokeNoArgInstanceMember object s)
+                   (Reflector/invokeInstanceMember
                        s object (into-array args))))))
+
+   AssignVar (fn [{:keys [var value]}]
+               (var-set var value))
+
+   AssignField (fn [{:keys [object field value]}] ;TODO: Test this.
+                 (let [field (name field)]
+                   (if (instance? Class object)
+                     (Reflector/setStaticField object field value)
+                     (Reflector/setInstanceField object field value))))
 
    })
 
@@ -611,13 +638,17 @@
   (eval '(.valueOf String true))
 
   (eval 'Byte/TYPE)
+  (eval '(identity Byte/TYPE))
   (eval '(String/valueOf true))
+
+  (eval '(do (def ^:dynamic *foo* 1)
+             (binding [*foo* 2]
+               (set! *foo* 3)
+               *foo*)))
 
   ;;TODO: Remaining ops from tools.analyzer
   :letfn
   :loop
   :recur
-  :set!
-  :with-meta
 
 )
