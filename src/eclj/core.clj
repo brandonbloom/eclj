@@ -193,24 +193,6 @@
                     (concat cases [else]))]
     (Answer. (->Fn name param expr env))))
 
-(defn macro? [x]
-  (and (var? x)
-       (-> x meta :macro)))
-
-(defn apply-args [f args env]
-  (handle (eval-items (reverse args) env)
-          #(thunk (Apply. f %) env)))
-
-(defmethod eval-seq :default
-  [[head & tail :as form] env]
-  (if (symbol? head)
-    (handle (-lookup env head)
-            #(if (macro? %)
-               (thunk (Expand. % form) env)
-               (apply-args % tail env)))
-    (handle (thunk head env)
-            #(apply-args % tail env))))
-
 (defn parse-try [[_ & body]]
   (let [catch? (every-pred seq? #(= (first %) 'catch))
         default? (every-pred catch? #(= (second %) :default))
@@ -251,6 +233,24 @@
               (fn [x]
                 (handle fthunk
                         (fn [_] (Answer. x))))))))
+
+(defn macro? [x]
+  (and (var? x)
+       (-> x meta :macro)))
+
+(defn apply-args [f args env]
+  (handle (eval-items (reverse args) env)
+          #(thunk (Apply. f %) env)))
+
+(defmethod eval-seq :default
+  [[head & tail :as form] env]
+  (if (symbol? head)
+    (handle (-lookup env head)
+            #(if (macro? %)
+               (thunk (Expand. % form) env)
+               (apply-args % tail env)))
+    (handle (thunk head env)
+            #(apply-args % tail env))))
 
 (defrecord Environment [locals]
 
