@@ -32,7 +32,7 @@
 ;; Conditions
 ; These actions are used as recoverable exceptions, not yet true conditions.
 (defrecord Undefined [sym])
-(defrecord NotCallable [f args])
+(defrecord NotCallable [f args]) ;TODO: NotApplicable?
 
 
 (defn- thunk [expr env]
@@ -60,9 +60,6 @@
     (effect? x) (propegate handle x k)
     (ifn? x) #(handle (x) k)
     :else (unexpected x)))
-
-
-(declare ->Fn symbolic-fn?)
 
 (defmulti eval-seq (fn [s env] (first s)))
 
@@ -130,15 +127,27 @@
                  (If. x then else)))
              env))))
 
-(defrecord Apply [f args]
+(defprotocol Applicable
+  (-apply [this arg]))
+
+(extend-protocol Applicable
+
+  Object
+  (-apply [this arg]
+    (raise (NotCallable. this arg)))
+
+  clojure.lang.IFn
+  (-apply [this arg]
+    (raise (Invoke. this arg)))
+
+  ;TODO: Special case symbols & keywords ?
+
+  )
+
+(defrecord Apply [f arg]
   Expression
   (-eval [_ _]
-    (cond
-      (symbolic-fn? f) (let [{:keys [expr env param]} f]
-                         (thunk expr (-extend env param args)))
-      ;TODO: Directly evaluate symbols & keywords?
-      (ifn? f) (raise (Invoke. f args))
-      :else (raise (NotCallable. f args)))))
+    (-apply f arg)))
 
 (defrecord Quote [expr]
   Expression
@@ -182,7 +191,10 @@
   [[_ expr] env]
   (thunk (Quote. expr) env))
 
-(defmethod eval-seq 'fn*
+(declare ->Fn)
+
+;;TODO: This pseudo-special is marked with **, namespace it instead.
+(defmethod eval-seq 'fn**
   [[_ & fn-tail] env]
   ;;TODO: Better parsing & validation.
   (let [[name impl] (if (symbol? (first fn-tail))
@@ -201,7 +213,7 @@
                                    :variadic
                                    :fixed))
                                methods)
-        arity-err (list 'assert false "Arity error")
+        arity-err (list 'assert false (str "Arity error" fn-tail))
         param (gensym "arg__")
         bind (fn [[sig body]]
                (list* 'let [sig param] body))
@@ -214,6 +226,16 @@
         expr (list* 'condp '= (list 'count param)
                     (concat cases [else]))]
     (Answer. (->Fn name param expr env))))
+
+(defmethod eval-seq 'fn*
+  [[_ & fn-tail :as form] env]
+  (if (symbol? (first fn-tail))
+    (let [name (first fn-tail)]
+      (thunk (list 'eclj.core/ycombine
+                   (list 'fn [name]
+                         (list* 'fn (next fn-tail))))
+             env))
+    (eval-seq (list* 'fn** fn-tail) env)))
 
 (defrecord Catch [class sym expr])
 
@@ -488,65 +510,72 @@
        (:value x)
        (throw (ex-info (pr-str (:action x)) x))))))
 
+
 (defrecord Fn [name param expr env]
 
-  clojure.lang.IFn
+  Applicable
+  (-apply [this args]
+    ;;TODO: support recur and recursing by name
+    (thunk expr (-extend env param args)))
 
+  clojure.lang.IFn
+  (applyTo [this args]
+    (eval (Apply. this args)))
   ;; *cringe*
   (invoke [this]
-    (eval (Apply. this []) env))
+    (eval (Apply. this [])))
   (invoke [this a]
-    (eval (Apply. this [a]) env))
+    (eval (Apply. this [a])))
   (invoke [this a b]
-    (eval (Apply. this [a b]) env))
+    (eval (Apply. this [a b])))
   (invoke [this a b c]
-    (eval (Apply. this [a b c]) env))
+    (eval (Apply. this [a b c])))
   (invoke [this a b c d]
-    (eval (Apply. this [a b c d]) env))
+    (eval (Apply. this [a b c d])))
   (invoke [this a b c d e]
-    (eval (Apply. this [a b c d e]) env))
+    (eval (Apply. this [a b c d e])))
   (invoke [this a b c d e f]
-    (eval (Apply. this [a b c d e f]) env))
+    (eval (Apply. this [a b c d e f])))
   (invoke [this a b c d e f g]
-    (eval (Apply. this [a b c d e f g]) env))
+    (eval (Apply. this [a b c d e f g])))
   (invoke [this a b c d e f g h]
-    (eval (Apply. this [a b c d e f g h]) env))
+    (eval (Apply. this [a b c d e f g h])))
   (invoke [this a b c d e f g h i]
-    (eval (Apply. this [a b c d e f g h i]) env))
+    (eval (Apply. this [a b c d e f g h i])))
   (invoke [this a b c d e f g h i j]
-    (eval (Apply. this [a b c d e f g h i j]) env))
+    (eval (Apply. this [a b c d e f g h i j])))
   (invoke [this a b c d e f g h i j k]
-    (eval (Apply. this [a b c d e f g h i j k]) env))
+    (eval (Apply. this [a b c d e f g h i j k])))
   (invoke [this a b c d e f g h i j k l]
-    (eval (Apply. this [a b c d e f g h i j k l]) env))
+    (eval (Apply. this [a b c d e f g h i j k l])))
   (invoke [this a b c d e f g h i j k l m]
-    (eval (Apply. this [a b c d e f g h i j k l m]) env))
+    (eval (Apply. this [a b c d e f g h i j k l m])))
   (invoke [this a b c d e f g h i j k l m n]
-    (eval (Apply. this [a b c d e f g h i j k l m n]) env))
+    (eval (Apply. this [a b c d e f g h i j k l m n])))
   (invoke [this a b c d e f g h i j k l m n o]
-    (eval (Apply. this [a b c d e f g h i j k l m n o]) env))
+    (eval (Apply. this [a b c d e f g h i j k l m n o])))
   (invoke [this a b c d e f g h i j k l m n o p]
-    (eval (Apply. this [a b c d e f g h i j k l m n o p]) env))
+    (eval (Apply. this [a b c d e f g h i j k l m n o p])))
   (invoke [this a b c d e f g h i j k l m n o p q]
-    (eval (Apply. this [a b c d e f g h i j k l m n o p q]) env))
+    (eval (Apply. this [a b c d e f g h i j k l m n o p q])))
   (invoke [this a b c d e f g h i j k l m n o p q r]
-    (eval (Apply. this [a b c d e f g h i j k l m n o p q r]) env))
+    (eval (Apply. this [a b c d e f g h i j k l m n o p q r])))
   (invoke [this a b c d e f g h i j k l m n o p q r s]
-    (eval (Apply. this [a b c d e f g h i j k l m n o p q r s]) env))
+    (eval (Apply. this [a b c d e f g h i j k l m n o p q r s])))
   (invoke [this a b c d e f g h i j k l m n o p q r s t]
-    (eval (Apply. this [a b c d e f g h i j k l m n o p q r s t]) env))
+    (eval (Apply. this [a b c d e f g h i j k l m n o p q r s t])))
   (invoke [this a b c d e f g h i j k l m n o p q r s t rest]
     (eval (Apply. this
-                  (concat [a b c d e f g h i j k l m n o p q r s t] rest))
-          env))
-
-  (applyTo [this args]
-    (eval (Apply. this args) env))
+                  (concat [a b c d e f g h i j k l m n o p q r s t] rest))))
 
   )
 
-(defn symbolic-fn? [x]
-  (instance? eclj.core.Fn x))
+(eval '(def ycombine
+         (fn [f]
+           ((fn [x] (x x))
+              (fn [x]
+                (f (fn [& args]
+                     (apply (x x) args))))))))
 
 (comment
 
@@ -654,9 +683,18 @@
                (set! *foo* 3)
                *foo*)))
 
-  ;;TODO: Remaining ops from tools.analyzer
-  :letfn
-  :loop
-  :recur
+  (eval '((fn factorial [x]
+            (if (<= x 1)
+              1
+              (* x (factorial (- x 1)))))
+          5))
+
+  ;;TODO: letfn
+  (eval '(letfn [(even? [x] (or (zero? x) (odd? (dec x))))
+                 (odd? [x] (and (not (zero? x)) (even? (dec x))))]
+           ((juxt even? odd?) 11)))
+
+  ;TODO fn/recur and loop/recur
+  ;TODO types & protocols
 
 )
