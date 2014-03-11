@@ -386,7 +386,7 @@
       (catch Exception e
         (Reflector/invokeStaticMethod
           class member clojure.lang.RT/EMPTY_ARRAY)))
-    (Reflector/invokeStaticMethod class member (into-array args))))
+    (Reflector/invokeStaticMethod class member (object-array args))))
 
 (defn staticfn [class member]
   (fn [& args]
@@ -437,9 +437,7 @@
 
    New
    (fn [{:keys [class args]}]
-     (let [types (into-array (map clojure.core/class args))
-           ctor (.getConstructor class types)]
-       (.newInstance ctor (into-array args))))
+     (Reflector/invokeConstructor class (object-array args)))
 
    Interop
    (fn [{:keys [object member args]}]
@@ -451,7 +449,7 @@
          (apply static-invoke object s args)
          (if (zero? (count args))
            (Reflector/invokeNoArgInstanceMember object s)
-           (Reflector/invokeInstanceMember s object (into-array args))))))
+           (Reflector/invokeInstanceMember s object (object-array args))))))
 
    AssignVar
    (fn [{:keys [var value]}]
@@ -466,7 +464,7 @@
 
    })
 
-(def empty-env (Environment. {}))
+(def empty-env (Environment. {})) ;TODO This isn't empty, it's host-env.
 
 (defn interpret
   ([expr] (interpret empty-env))
@@ -631,6 +629,7 @@
 
   (eval '(new String "abc"))
   (eval '(String. "xyz"))
+  (eval '(Apply. inc 5))
 
   (eval '(. "abc" toUpperCase))
   (eval '(. "abc" (toUpperCase)))
