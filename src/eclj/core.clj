@@ -689,6 +689,14 @@
               (* x (factorial (- x 1)))))
           5))
 
+  (time
+    (dotimes [i 200]
+      (eval '((fn factorial [x]
+                (if (<= x 1)
+                  1
+                  (* x (factorial (- x 1)))))
+              20))))
+
   ;;TODO: letfn
   (eval '(letfn [(even? [x] (or (zero? x) (odd? (dec x))))
                  (odd? [x] (and (not (zero? x)) (even? (dec x))))]
