@@ -237,6 +237,15 @@
              env))
     (eval-seq (list* 'fn** fn-tail) env)))
 
+(defmethod eval-seq 'letfn*
+  [[_ [& forms] & body] env]
+  (let [names (vec (take-nth 2 forms))
+        decls (for [form (take-nth 2 (next forms))]
+                (list 'fn names (list* 'fn (nnext form))))]
+    (thunk (list* 'let [names (list* 'eclj.core/y*combine decls)]
+                  body)
+           env)))
+
 (defrecord Catch [class sym expr])
 
 (defn exception-handler [catches finally env]
@@ -570,12 +579,23 @@
 
   )
 
-(eval '(def ycombine
-         (fn [f]
-           ((fn [x] (x x))
-              (fn [x]
-                (f (fn [& args]
-                     (apply (x x) args))))))))
+(eval '(defn ycombine [f]
+         ((fn [x] (x x))
+            (fn [x]
+              (f (fn [& args]
+                   (apply (x x) args)))))))
+
+(eval '(defn y*combine [& fs]
+         (map (fn [f] (f))
+              ((fn [x] (x x))
+               (fn [p]
+                 (map (fn [f]
+                        (fn []
+                          (apply f (map (fn [ff]
+                                          (fn [& y]
+                                            (apply (ff) y)))
+                                        (p p)))))
+                      fs))))))
 
 (comment
 
@@ -697,7 +717,6 @@
                   (* x (factorial (- x 1)))))
               20))))
 
-  ;;TODO: letfn
   (eval '(letfn [(even? [x] (or (zero? x) (odd? (dec x))))
                  (odd? [x] (and (not (zero? x)) (even? (dec x))))]
            ((juxt even? odd?) 11)))
