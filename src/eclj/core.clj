@@ -198,8 +198,7 @@
 
 (declare ->Fn)
 
-;;TODO: This pseudo-special is marked with **, namespace it instead.
-(defmethod eval-seq 'fn**
+(defmethod eval-seq 'eclj.core/fn**
   [[_ & fn-tail] env]
   ;;TODO: Better parsing & validation.
   (let [[name impl] (if (symbol? (first fn-tail))
@@ -238,9 +237,9 @@
     (let [name (first fn-tail)]
       (thunk (list 'eclj.core/ycombine
                    (list 'fn [name]
-                         (list* 'fn** (next fn-tail))))
+                         (list* 'eclj.core/fn** (next fn-tail))))
              env))
-    (eval-seq (list* 'fn** fn-tail) env)))
+    (eval-seq (list* 'eclj.core/fn** fn-tail) env)))
 
 (defmethod eval-seq 'letfn*
   [[_ [& forms] & body] env]
@@ -378,7 +377,7 @@
   [[_ bindings & body] env]
   (let [syms (vec (take-nth 2 bindings))
         inits (take-nth 2 (next bindings))]
-    (thunk (list* (list* 'fn** syms body) inits) env)))
+    (thunk (list* (list* 'eclj.core/fn** syms body) inits) env)))
 
 (defmethod eval-seq 'recur
   [[_ & args] env]
