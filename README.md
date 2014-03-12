@@ -18,6 +18,14 @@ entry point.
 
 Woefully incomplete and highly experimental!
 
+The majority of special forms are implemented. Only the forms related to
+classes are not yet implemented: `deftype`, `reify`, `defprotocol`, etc.
+
+
+## Usage
+
+The only public API is `eclj.core/eval`. It is used just like Clojure's eval.
+
 
 ## License
 
