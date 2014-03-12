@@ -5,7 +5,8 @@
 (defn eval [expr]
   (let [ret (eclj.core/eval expr)]
     (assert (= (clojure.core/eval expr) ret)
-            (str (pr-str expr) " evaluated to " (pr-str ret)))))
+            (str (pr-str expr) " evaluated to " (pr-str ret)))
+    ret))
 
 (eval 5)
 (eval true)
