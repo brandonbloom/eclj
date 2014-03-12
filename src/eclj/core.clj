@@ -213,7 +213,7 @@
                                    :variadic
                                    :fixed))
                                methods)
-        arity-err (list 'assert false (str "Arity error" fn-tail))
+        arity-err (list 'assert false "Arity error")
         param (gensym "arg__")
         bind (fn [[sig body]]
                (list* 'let [sig param] body))
@@ -233,7 +233,7 @@
     (let [name (first fn-tail)]
       (thunk (list 'eclj.core/ycombine
                    (list 'fn [name]
-                         (list* 'fn (next fn-tail))))
+                         (list* 'fn** (next fn-tail))))
              env))
     (eval-seq (list* 'fn** fn-tail) env)))
 
@@ -599,52 +599,18 @@
 
 (comment
 
-  (eval 5)
-  (eval true)
+  (eval (->Bind 'x '(+ 1 2) 0))
+  (eval (->Bind 'x '(+ 1 2) 'x))
 
-  (eval 'inc)
-  (eval 'foo)
-  (eval #'inc)
-  (eval '(identity inc))
-  (eval 'Boolean)
+  (eval (->Let 'x (+ 1 2) 0))
+  (eval (->Let 'x (+ 1 2) 'x))
+  (eval (->Let 'x (+ 1 2) 'y))
+  (trampoline (:k (interpret (->Let 'x 1 'y))) 5)
 
-  (eval ())
-
-  (eval (Bind. 'x '(+ 1 2) 0))
-  (eval (Bind. 'x '(+ 1 2) 'x))
-
-  (eval (Let. 'x (+ 1 2) 0))
-  (eval (Let. 'x (+ 1 2) 'x))
-  (eval (Let. 'x (+ 1 2) 'y))
-  (trampoline (:k (interpret (Let. 'x 1 'y))) 5)
-
-  (eval '(if true 5 10))
-  (eval '(if false 5 10))
-  (eval '(if true 5))
-  (eval '(if false 5))
-  (eval '(if xx 5))
-
-  (eval '(- 10 3))
-  (eval '(+ (inc 5) (inc 10)))
-  (eval '(#'* (inc 4) 2))
-
-  (eval '[inc 10])
   (trampoline (:k (interpret '[x 10])) 5)
-  (eval '#{(+ 5 10)})
 
-  (eval '(do))
-  (eval '(do :x))
-  (eval '(do (prn :x) :y))
-  (eval '(do (prn :x) (prn :y) :z))
-
-  (eval '(-> 8 inc (- 3)))
-
-  (eval '(let [] 1))
-  (eval '(let [x 2] x))
-  (eval '(let [x 2 y 4] (+ x y)))
-  (eval '(let [x 2 y 4 z 6] (+ x y z)))
-
-  (eval ''x)
+  (eval '(if xx 5))
+  (eval 'foo)
 
   (eval '(fn [x] x))
   (eval '(fn ([x] x)))
@@ -653,61 +619,26 @@
   (eval '(fn ([] 0) ([x] 1) ([x y] 2)))
   (eval '(fn ([] 0) ([x] 1) ([x y] 2) ([x y & zs] :n)))
 
-  (eval '((fn [x] x) 5))
-  (eval '(apply (fn [& args] (apply + args)) (range 1000)))
   ((eval '(fn [x] x)) 5)
-
-  (eval '(throw (ex-info "err" {})))
-  (eval '(try 1))
-  (eval '(try (throw (ex-info "err" {}))))
-  (eval '(try 1 (catch Throwable e 2)))
-  (eval '(try (throw (ex-info "err" {})) (catch :default e 3)))
-  (eval '(try (throw (ex-info "err" {})) (catch :default e e)))
-  (eval '(try 1 (throw (ex-info "err" {})) 2
-              (catch IllegalArgumentException e 2)))
-  (eval '(try 1 (finally (prn 2))))
-  (eval '(try (throw (ex-info "err" {}))
-              (catch :default e e)
-              (finally (prn 2))))
 
   (eval '(def declared))
   (eval '(def defined 1))
   (eval '(do (def redefined 2) (def redefined 3)))
   (eval '(def foo "bar" 4))
-  (list declared defined redefined foo (-> #'foo meta :doc))
+  [declared defined redefined foo (-> #'foo meta :doc)]
 
-  (eval '(new String "abc"))
-  (eval '(String. "xyz"))
+  (eval '(throw (ex-info "err" {})))
+  (eval '(try (throw (ex-info "err" {}))))
+  (eval '(try 1 (throw (ex-info "err" {})) 2
+              (catch IllegalArgumentException e 2)))
+  (eval '(try (throw (ex-info "err" {})) (catch :default e 3)))
+  (eval '(try (throw (ex-info "err" {})) (catch :default e e)))
+  (eval '(try (throw (ex-info "err" {}))
+              (catch :default e e)
+              (finally (prn 2))))
+
   (eval '(Apply. inc 5))
-
-  (eval '(. "abc" toUpperCase))
-  (eval '(. "abc" (toUpperCase)))
-  (eval '(.toUpperCase "abc"))
-  (eval '(. "abc" startsWith "x"))
-  (eval '(. "abc" (startsWith "x")))
-  (eval '(.startsWith "abc" "x"))
-
-  (eval 'Byte)
-  (eval '(. Byte TYPE))
-  (eval '(. Byte (TYPE)))
-  (eval '(. String valueOf true))
-  (eval '(. String (valueOf true)))
   (eval '(.valueOf String true))
-
-  (eval 'Byte/TYPE)
-  (eval '(identity Byte/TYPE))
-  (eval '(String/valueOf true))
-
-  (eval '(do (def ^:dynamic *foo* 1)
-             (binding [*foo* 2]
-               (set! *foo* 3)
-               *foo*)))
-
-  (eval '((fn factorial [x]
-            (if (<= x 1)
-              1
-              (* x (factorial (- x 1)))))
-          5))
 
   (time
     (dotimes [i 200]
@@ -716,10 +647,6 @@
                   1
                   (* x (factorial (- x 1)))))
               20))))
-
-  (eval '(letfn [(even? [x] (or (zero? x) (odd? (dec x))))
-                 (odd? [x] (and (not (zero? x)) (even? (dec x))))]
-           ((juxt even? odd?) 11)))
 
   ;TODO fn/recur and loop/recur
   ;TODO types & protocols
