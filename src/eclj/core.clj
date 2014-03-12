@@ -34,6 +34,7 @@
 ; These actions are used as recoverable exceptions, not yet true conditions.
 (defrecord Undefined [sym])
 (defrecord NotCallable [f args]) ;TODO: NotApplicable?
+(defrecord NonTailPosition [])
 
 
 (defn- thunk [expr env]
@@ -537,9 +538,11 @@
   (fn handler [x k]
     (cond
       (answer? x) #(k (:value x))
-      (effect? x) (let [{:keys [action]} x]
+      (effect? x) (let [{effectk :k :keys [action]} x]
                     (if (instance? Recur action)
-                      (thunk (Apply. f (:args action)) env)
+                      (if (= effectk ->Answer)
+                        (thunk (Apply. f (:args action)) env)
+                        (raise (NonTailPosition.)))
                       (propegate handler x ->Answer)))
       (ifn? x) #(handler (x) k)
       :else (unexpected x))))
@@ -673,12 +676,8 @@
                   (* x (factorial (- x 1)))))
               20))))
 
-  (eval '(loop [acc 0, n 10]
-           (if (zero? n)
-              acc
-              (recur (+ acc n) (dec n)))))
+  (eval '(loop [] (inc (recur))))
 
-  ;TODO fn/recur and loop/recur
   ;TODO case
   ;TODO deftype
   ;TODO defprotocol
