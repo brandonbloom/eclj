@@ -422,10 +422,6 @@
                   (thunk (last clauses) env)
                   (raise (NoMatchingClause. value))))))))
 
-(defn macro? [x]
-  (and (var? x)
-       (-> x meta :macro)))
-
 (defn apply-args [f args env]
   (handle (eval-items (reverse args) env)
           #(thunk (Apply. f %) env)))
