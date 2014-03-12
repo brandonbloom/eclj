@@ -251,7 +251,7 @@
     (let [name (first fn-tail)]
       (thunk (list 'eclj.core/ycombine
                    (list 'fn [name]
-                         (list* 'eclj.core/fn** (next fn-tail))))
+                         (list* 'eclj.core/fn** fn-tail)))
              env))
     (eval-seq (list* 'eclj.core/fn** fn-tail) env)))
 
