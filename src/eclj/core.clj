@@ -28,6 +28,7 @@
 (defrecord Interop [object member args])
 (defrecord AssignVar [var value])
 (defrecord AssignField [object field value])
+(defrecord Recur [args])
 
 ;; Conditions
 ; These actions are used as recoverable exceptions, not yet true conditions.
@@ -223,7 +224,7 @@
         else (if-let [variadic (-> arity-groups :variadic first)]
                (bind variadic)
                arity-err)
-        expr (list* 'condp '= (list 'count param)
+        expr (list* 'condp '= (list 'count param) ;TODO case
                     (concat cases [else]))]
     (Answer. (->Fn name param expr env))))
 
@@ -256,7 +257,8 @@
       (effect? x)
         (let [error (-> x :action :error)
               catch (some (fn [{:keys [class sym expr] :as catch}]
-                            (when (instance? class error)
+                            (when (and (instance? Throw (:action x))
+                                       (instance? class error))
                               catch))
                             catches)]
           (if-let [{:keys [class sym expr]} catch]
@@ -367,6 +369,17 @@
             (fn [object]
               (handle (thunk expr env)
                       #(raise (AssignField. object (second location) %)))))))
+
+(defmethod eval-seq 'loop*
+  [[_ bindings & body] env]
+  (let [syms (vec (take-nth 2 bindings))
+        inits (take-nth 2 (next bindings))]
+    (thunk (list* (list* 'fn** syms body) inits) env)))
+
+(defmethod eval-seq 'recur
+  [[_ & args] env]
+  (handle (eval-items (reverse args) env)
+          #(raise (Recur. %))))
 
 (defn macro? [x]
   (and (var? x)
@@ -520,12 +533,24 @@
        (throw (ex-info (pr-str (:action x)) x))))))
 
 
+(defn recur-handler [f env]
+  (fn handler [x k]
+    (cond
+      (answer? x) #(k (:value x))
+      (effect? x) (let [{:keys [action]} x]
+                    (if (instance? Recur action)
+                      (thunk (Apply. f (:args action)) env)
+                      (propegate handler x ->Answer)))
+      (ifn? x) #(handler (x) k)
+      :else (unexpected x))))
+
 (defrecord Fn [name param expr env]
 
   Applicable
   (-apply [this args]
-    ;;TODO: support recur and recursing by name
-    (thunk expr (-extend env param args)))
+    (let [handler (recur-handler this env)]
+      (handler (thunk expr (-extend env param args))
+               ->Answer)))
 
   clojure.lang.IFn
   (applyTo [this args]
@@ -648,7 +673,18 @@
                   (* x (factorial (- x 1)))))
               20))))
 
+  (eval '(loop [acc 0, n 10]
+           (if (zero? n)
+              acc
+              (recur (+ acc n) (dec n)))))
+
   ;TODO fn/recur and loop/recur
-  ;TODO types & protocols
+  ;TODO case
+  ;TODO deftype
+  ;TODO defprotocol
+  ;TODO import
+  ;TODO reify
+  ;TODO monitor-enter and monitor-exit
+
 
 )

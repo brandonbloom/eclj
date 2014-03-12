@@ -84,3 +84,14 @@
 (eval '(letfn [(even? [x] (or (zero? x) (odd? (dec x))))
                (odd? [x] (and (not (zero? x)) (even? (dec x))))]
          ((juxt even? odd?) 11)))
+
+(eval '((fn [acc n]
+          (if (zero? n)
+            acc
+            (recur (+ acc n) (dec n))))
+        0 10))
+
+(eval '(loop [acc 0, n 10]
+         (if (zero? n)
+            acc
+            (recur (+ acc n) (dec n)))))
