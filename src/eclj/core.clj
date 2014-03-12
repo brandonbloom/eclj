@@ -228,7 +228,7 @@
         else (if-let [variadic (-> arity-groups :variadic first)]
                (bind variadic)
                arity-err)
-        expr (list* 'condp '= (list 'count param) ;TODO case
+        expr (list* 'clojure.core/case (list 'count param) ;TODO case
                     (concat cases [else]))]
     (Answer. (->Fn name param expr env))))
 
