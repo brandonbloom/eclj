@@ -38,6 +38,7 @@
 (defrecord Undefined [sym])
 (defrecord NotCallable [f args]) ;TODO: NotApplicable?
 (defrecord NonTailPosition [])
+(defrecord NoMatchingClause [value])
 
 
 (defn- thunk [expr env]
@@ -388,6 +389,24 @@
   [[_ sym] env]
   (raise (Import. sym)))
 
+;;TODO: Don't capture unqualified 'case
+(defmethod eval-seq 'case
+  [[_ & tail] env]
+  (thunk (list* 'clojure.core/case tail) env))
+
+(defmethod eval-seq 'clojure.core/case
+  [[_ expr & clauses] env]
+  (let [default? (odd? (count clauses))
+        cases (partition 2 (if default? (butlast clauses) clauses))
+        table (into {} (map vec cases))]
+    (handle (thunk expr env)
+            (fn [value]
+              (if-let [[_ e] (find table value)]
+                (thunk e env)
+                (if default?
+                  (thunk (last clauses) env)
+                  (raise (NoMatchingClause. value))))))))
+
 (defn macro? [x]
   (and (var? x)
        (-> x meta :macro)))
@@ -689,7 +708,9 @@
   (eval '(loop [] (inc (recur))))
   (eval '(import [java.util Date Currency]))
 
-  ;TODO case
+  (eval '(case "str"
+           5 :number))
+
   ;TODO deftype
   ;TODO defprotocol
   ;TODO reify

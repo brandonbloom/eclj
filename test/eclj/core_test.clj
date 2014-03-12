@@ -95,3 +95,18 @@
          (if (zero? n)
             acc
             (recur (+ acc n) (dec n)))))
+
+(eval '(case 5
+         5 :number))
+
+(eval '(case 5
+         5 :number
+         :default))
+
+(eval '(case "str"
+         5 :number
+         :default))
+
+(eval '(case [1 2 3]
+         5 :number
+         [1 2 3] :vector))
