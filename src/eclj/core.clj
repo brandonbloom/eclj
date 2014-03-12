@@ -17,7 +17,8 @@
 (defrecord Answer [value])
 (defrecord Effect [action k])
 
-;;; Actions
+;;; Action Records
+;; Top-level Actions
 (defrecord Deref [x])
 (defrecord Invoke [f args])
 (defrecord Resolve [sym])
@@ -28,6 +29,8 @@
 (defrecord Interop [object member args])
 (defrecord AssignVar [var value])
 (defrecord AssignField [object field value])
+(defrecord Import [sym])
+;; Internal Actions
 (defrecord Recur [args])
 
 ;; Conditions
@@ -382,6 +385,10 @@
   (handle (eval-items (reverse args) env)
           #(raise (Recur. %))))
 
+(defmethod eval-seq 'clojure.core/import*
+  [[_ sym] env]
+  (raise (Import. sym)))
+
 (defn macro? [x]
   (and (var? x)
        (-> x meta :macro)))
@@ -506,6 +513,10 @@
        (if (instance? Class object)
          (Reflector/setStaticField object field value)
          (Reflector/setInstanceField object field value))))
+
+   Import
+   (fn [{:keys [sym]}]
+     (.importClass *ns* (clojure.lang.RT/classForName (name sym))))
 
    })
 
@@ -677,11 +688,11 @@
               20))))
 
   (eval '(loop [] (inc (recur))))
+  (eval '(import [java.util Date Currency]))
 
   ;TODO case
   ;TODO deftype
   ;TODO defprotocol
-  ;TODO import
   ;TODO reify
   ;TODO monitor-enter and monitor-exit
 
