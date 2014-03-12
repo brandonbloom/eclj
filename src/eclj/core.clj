@@ -567,13 +567,12 @@
                          x))
          :else (unexpected x))))))
 
-(defn eval
-  ([expr] (eval expr empty-env))
-  ([expr env]
-   (let [x (interpret expr env)]
-     (if (answer? x)
-       (:value x)
-       (throw (ex-info (pr-str (:action x)) x))))))
+;;TODO: Overload that takes an env.
+(defn eval [expr]
+  (let [x (interpret expr empty-env)]
+    (if (answer? x)
+      (:value x)
+      (throw (ex-info (pr-str (:action x)) x)))))
 
 
 (defn recur-handler [f env]
@@ -724,9 +723,14 @@
   (eval '(case "str"
            5 :number))
 
-  ;TODO deftype
+  (eval '(deftype Foo [bar]))
+  (eval '(defrecord Point [x y]))
+
+  (eval '(defprotocol P (fff [this])))
+
+  ;TODO deftype*
+  ;TODO reify*
   ;TODO defprotocol
-  ;TODO reify
   ;TODO monitor-enter and monitor-exit
 
 
