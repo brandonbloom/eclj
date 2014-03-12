@@ -13,6 +13,7 @@
 
 (eval 'inc)
 (eval #'inc)
+(eval '#'inc)
 (eval '(identity inc))
 (eval 'Boolean)
 
@@ -24,8 +25,10 @@
 (eval '(if false 5))
 
 (eval '(- 10 3))
+(eval '((identity -) 10 3))
 (eval '(+ (inc 5) (inc 10)))
 (eval '(#'* (inc 4) 2))
+(eval '(#'identity "hello"))
 
 (eval '[inc 10])
 (eval '#{(+ 5 10)})

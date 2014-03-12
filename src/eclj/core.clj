@@ -14,6 +14,11 @@
   (-lookup [env sym])
   (-extend [env sym val]))
 
+;; Wraps resolved values.
+(defrecord Static [value])
+(defrecord Dynamic [value])
+
+;; Wraps all interpreter intermediate values.
 (defrecord Answer [value])
 (defrecord Effect [action k])
 
@@ -39,6 +44,7 @@
 (defrecord NotCallable [f args]) ;TODO: NotApplicable?
 (defrecord NonTailPosition [])
 (defrecord NoMatchingClause [value])
+(defrecord NotAssignable [location])
 
 
 (defn- thunk [expr env]
@@ -82,9 +88,14 @@
   clojure.lang.Symbol
   (-eval [sym env]
     (handle (-lookup env sym)
-            #(if (var? %)
-               (raise (Deref. %))
-               (Answer. %))))
+            (fn [{:keys [value] :as resolved}]
+               (cond
+                 (instance? Static resolved) (Answer. value)
+                 (instance? Dynamic resolved)
+                   (if (var? value)
+                     (raise (Deref. value))
+                     (Answer. value))
+                 :else (unexpected resolved)))))
 
   clojure.lang.ISeq
   (-eval [list env]
@@ -125,13 +136,8 @@
 (defrecord If [test then else]
   Expression
   (-eval [_ env]
-    (if (symbol? test)
-      (handle (-lookup env test)
-              #(if % (thunk then env) (thunk else env)))
-      (thunk (let [x (gensym)]
-               (Let. x test
-                 (If. x then else)))
-             env))))
+    (handle (thunk test env)
+            #(thunk (if % then else) env))))
 
 (defprotocol Applicable
   (-apply [this arg]))
@@ -143,6 +149,10 @@
     (raise (NotCallable. this arg)))
 
   clojure.lang.IFn
+  (-apply [this arg]
+    (raise (Invoke. this arg)))
+
+  clojure.lang.Var
   (-apply [this arg]
     (raise (Invoke. this arg)))
 
@@ -172,7 +182,10 @@
 
 (defmethod eval-seq 'var
   [[_ sym] env]
-  (raise (Resolve. sym)))
+  (handle (raise (Resolve. sym))
+          (fn [{:keys [value] :as resolved}]
+            (assert (instance? Dynamic resolved))
+            (Answer. value))))
 
 (defmethod eval-seq 'do
   [[_ & body] env]
@@ -335,7 +348,7 @@
 (defmethod eval-seq 'def
   [[_ & body] env]
   (let [[sym doc expr] (case (count body)
-                         1 [(first body) nil clojure.lang.Var$Unbound]
+                         1 [(first body)]
                          2 [(first body) nil (second body)]
                          3 body)
         sym* (vary-meta sym assoc :doc doc)]
@@ -346,7 +359,7 @@
 
 (defmethod eval-seq 'new
   [[_ sym & args] env]
-  (handle (-lookup env sym)
+  (handle (thunk sym env)
           (fn [class] ;TODO: Validate
             (fn []
               (handle (eval-items (vec args) env)
@@ -366,9 +379,11 @@
   [[_ location expr] env]
   (if (symbol? location)
     (handle (-lookup env location)
-            (fn [var] ;TODO: Validate
-              (handle (thunk expr env)
-                      #(raise (AssignVar. var %)))))
+            (fn [{:keys [value] :as resolved}]
+              (if (and (instance? Dynamic resolved) (var? value))
+                (handle (thunk expr env)
+                        #(raise (AssignVar. value %)))
+                (raise (NotAssignable. location)))))
     (handle (thunk (first location) env)
             (fn [object]
               (handle (thunk expr env)
@@ -426,9 +441,11 @@
                                   [obj & args] tail]
                               (thunk (list* '. obj member args) env))
         :else (handle (-lookup env head)
-                      #(if (macro? %)
-                         (thunk (Expand. % form) env)
-                         (apply-args % tail env)))))
+                      #(let [{:keys [value]} %]
+                         (if (and (instance? Dynamic %)
+                                  (-> value meta :macro))
+                           (thunk (Expand. value form) env)
+                           (apply-args value tail env))))))
     (handle (thunk head env)
             #(apply-args % tail env))))
 
@@ -437,15 +454,15 @@
   IEnvironment
 
   (-lookup [_ sym]
-    (if-let [[_ val] (find locals sym)]
-      (Answer. val)
+    (if-let [[_ value] (find locals sym)]
+      (Answer. (Static. value))
       (Effect. (Resolve. sym)
                #(if %
                   (Answer. %)
                   (raise (Undefined. sym))))))
 
-  (-extend [this sym val]
-    (assoc-in this [:locals sym] val))
+  (-extend [this sym value]
+    (assoc-in this [:locals sym] value))
 
   )
 
@@ -462,14 +479,13 @@
   (fn [& args]
     (apply static-invoke class member args)))
 
-(defn maybe-class [sym]
-  (try
-    (clojure.lang.RT/classForName (name sym))
-    (catch ClassNotFoundException _ nil)))
-
 (defn maybe-resolve [sym]
-  (or (resolve sym)
-      (maybe-class sym)))
+  (if-let [x (resolve sym)]
+    (->Dynamic x)
+    (try
+      (->Dynamic (clojure.lang.RT/classForName (name sym)))
+      (catch ClassNotFoundException _
+        nil))))
 
 (def root-handlers
   {
@@ -486,13 +502,14 @@
    (fn [{:keys [sym]}]
      (or (maybe-resolve sym)
          (when-let [ns (namespace sym)]
-           (let [c (maybe-resolve (symbol ns))
+           (let [{:keys [value]} (maybe-resolve (symbol ns))
                  n (name sym)]
-             (when (instance? Class c)
-               (try
-                 (.get (.getField c n) c)
-                 (catch NoSuchFieldException _
-                   (staticfn c n))))))))
+             (when (instance? Class value)
+               (->Dynamic
+                 (try
+                   (.get (.getField value n) value)
+                   (catch NoSuchFieldException _
+                     (staticfn value n)))))))))
 
    Declare
    (fn [{:keys [sym]}]
