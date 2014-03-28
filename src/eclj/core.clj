@@ -422,6 +422,16 @@
                   (thunk (last clauses) env)
                   (raise (NoMatchingClause. value))))))))
 
+;;TODO: Proper effects for deftype and friends.
+(defn host-eval [form env]
+  (thunk (Apply. #'clojure.core/eval [form]) env))
+
+(defmethod eval-seq 'deftype* [form env]
+  (host-eval form env))
+
+(defmethod eval-seq 'reify* [form env]
+  (host-eval form env))
+
 (defn apply-args [f args env]
   (handle (eval-items (reverse args) env)
           #(thunk (Apply. f %) env)))
@@ -724,12 +734,12 @@
            5 :number))
 
   (eval '(deftype Foo [bar]))
+  (eval '(Foo. 1))
   (eval '(defrecord Point [x y]))
 
-  (eval '(defprotocol P (fff [this])))
+  (eval '(defprotocol P))
+  (eval '(defprotocol P (f [this])))
 
-  ;TODO deftype*
-  ;TODO reify*
   ;TODO defprotocol
   ;TODO monitor-enter and monitor-exit
 
