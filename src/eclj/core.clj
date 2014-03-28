@@ -103,6 +103,10 @@
       (Answer. list)
       (eval-seq list env)))
 
+  clojure.lang.AMapEntry
+  (-eval [xs env]
+    (thunk (vec xs) env))
+
 )
 
 (defn eval-items [coll env]

@@ -30,8 +30,9 @@
 (eval '(#'* (inc 4) 2))
 (eval '(#'identity "hello"))
 
-(eval '[inc 10])
-(eval '#{(+ 5 10)})
+(eval '[1 "two" inc (+ 5 10)])
+(eval '{1 "two" inc (+ 5 10)})
+(eval '#{1"two" inc (+ 5 10)})
 
 (eval '(do))
 (eval '(do :x))
