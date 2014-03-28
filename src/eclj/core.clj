@@ -379,6 +379,15 @@
               (handle (eval-items (vec args) env)
                       #(raise (Interop. object member %)))))))
 
+(defn expand-dot [[head & tail]]
+  (let [s (str head)]
+    (cond
+      (.endsWith s ".") (let [class (symbol (apply str (butlast s)))]
+                          (list* 'new class tail))
+      (.startsWith s ".") (let [member (symbol (apply str (next s)))
+                                [obj & args] tail]
+                            (list* '. obj member args)))))
+
 (defmethod eval-seq 'set!
   [[_ location expr] env]
   (if (symbol? location)
@@ -388,10 +397,11 @@
                 (handle (thunk expr env)
                         #(raise (AssignVar. value %)))
                 (raise (NotAssignable. location)))))
-    (handle (thunk (first location) env)
-            (fn [object]
-              (handle (thunk expr env)
-                      #(raise (AssignField. object (second location) %)))))))
+    (let [[_ obj sym :as xx] (expand-dot location)] ;TODO: Validate.
+      (handle (thunk obj env)
+              (fn [instance]
+                (handle (thunk expr env)
+                        #(raise (AssignField. instance sym %))))))))
 
 (defmethod eval-seq 'loop*
   [[_ bindings & body] env]
@@ -443,19 +453,14 @@
 (defmethod eval-seq :default
   [[head & tail :as form] env]
   (if (symbol? head)
-    (let [s (str head)]
-      (cond
-        (.endsWith s ".") (let [class (symbol (apply str (butlast s)))]
-                            (thunk (list* 'new class tail) env))
-        (.startsWith s ".") (let [member (symbol (apply str (next s)))
-                                  [obj & args] tail]
-                              (thunk (list* '. obj member args) env))
-        :else (handle (-lookup env head)
-                      #(let [{:keys [value]} %]
-                         (if (and (instance? Dynamic %)
-                                  (-> value meta :macro))
-                           (thunk (Expand. value form) env)
-                           (apply-args value tail env))))))
+    (if-let [expanded (expand-dot form)]
+        (thunk expanded env)
+        (handle (-lookup env head)
+                #(let [{:keys [value]} %]
+                   (if (and (instance? Dynamic %)
+                            (-> value meta :macro))
+                     (thunk (Expand. value form) env)
+                     (apply-args value tail env)))))
     (handle (thunk head env)
             #(apply-args % tail env))))
 
@@ -740,6 +745,9 @@
   (eval '(deftype Foo [bar]))
   (eval '(Foo. 1))
   (eval '(defrecord Point [x y]))
+
+  (eval (list 'set! (list '.__methodImplCache (fn [])) ; explicitly a host fn.
+                    (list 'clojure.lang.MethodImplCache. nil nil)))
 
   (eval '(defprotocol P))
   (eval '(defprotocol P (f [this])))
