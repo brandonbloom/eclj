@@ -36,8 +36,9 @@
 
 (eval '(do))
 (eval '(do :x))
-(eval '(do (prn :x) :y))
-(eval '(do (prn :x) (prn :y) :z))
+(eval '(do :x :y))
+(eval '(with-out-str (do (prn :x) (prn :y))))
+(eval '(with-out-str (do (prn :x) (prn :y) (prn :z))))
 
 (eval '(-> 8 inc (- 3)))
 
@@ -53,7 +54,7 @@
 
 (eval '(try 1))
 (eval '(try 1 (catch Throwable e 2)))
-(eval '(try 1 (finally (prn 2))))
+(eval '(with-out-str (try 1 (finally (prn 2)))))
 
 (eval '(new String "abc"))
 (eval '(String. "xyz"))
