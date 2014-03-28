@@ -20,7 +20,7 @@ Woefully incomplete and highly experimental!
 
 The majority of special forms are implemented.
 
-Notably, forms related to classes are not yet implemented:
+Notably, forms related to classes delegate to clojure.core/eval:
 `deftype`, `reify`, `defprotocol`, etc.
 
 
