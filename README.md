@@ -13,6 +13,9 @@ This project's ambitious goals are based on a vast academic foundation.  Oleg
 Kiselyov's [Extensible Effects & Interpreters][1] page provides an excellent
 entry point.
 
+I'm also interested in building an evaluator that includes an extensible
+abstract interpreter and extensible JIT compiler. See [Lancet][2]. 
+
 
 ## Status
 
@@ -38,3 +41,4 @@ your option) any later version.
 
 
 [1]: http://okmij.org/ftp/Haskell/extensible/
+[2]: https://github.com/TiarkRompf/lancet
