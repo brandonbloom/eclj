@@ -6,6 +6,7 @@
   (let [ret (eclj.core/eval expr)]
     (assert (= (clojure.core/eval expr) ret)
             (str (pr-str expr) " evaluated to " (pr-str ret)))
+    (print ".") ;TODO: Better results reporting
     ret))
 
 (eval 5)

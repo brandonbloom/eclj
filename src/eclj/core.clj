@@ -14,10 +14,6 @@
   (-lookup [env sym])
   (-extend [env sym val]))
 
-;; Wraps resolved values.
-(defrecord Static [value])
-(defrecord Dynamic [value])
-
 ;; Wraps all interpreter intermediate values.
 (defrecord Answer [value])
 (defrecord Effect [op k])
@@ -68,14 +64,11 @@
   clojure.lang.Symbol
   (-eval [sym env]
     (handle (-lookup env sym)
-            (fn [{:keys [value] :as resolved}]
-               (cond
-                 (instance? Static resolved) (Answer. value)
-                 (instance? Dynamic resolved)
-                   (if (var? value)
-                     (raise {:op ::deref :ref value})
-                     (Answer. value))
-                 :else (unexpected resolved)))))
+            (fn [{:keys [origin value]}]
+               (case origin
+                 :locals (Answer. value)
+                 :jvm (Answer. value)
+                 :namespace (raise {:op ::deref :ref value})))))
 
   clojure.lang.ISeq
   (-eval [list env]
@@ -167,8 +160,8 @@
 (defmethod eval-seq 'var
   [[_ sym] env]
   (handle (raise {:op ::resolve :sym sym})
-          (fn [{:keys [value] :as resolved}]
-            (assert (instance? Dynamic resolved))
+          (fn [{:keys [origin value]}]
+            (assert (= origin :namespace))
             (Answer. value))))
 
 (defmethod eval-seq 'do
@@ -375,8 +368,8 @@
   [[_ location expr] env]
   (if (symbol? location)
     (handle (-lookup env location)
-            (fn [{:keys [value] :as resolved}]
-              (if (and (instance? Dynamic resolved) (var? value))
+            (fn [{:keys [origin value]}]
+              (if (= origin :namespace)
                 (handle (thunk expr env)
                         #(raise {:op ::assign-var :var value :value %}))
                 (signal {:error :not-assignable :location location}))))
@@ -440,21 +433,21 @@
     (if-let [expanded (expand-dot form)]
         (thunk expanded env)
         (handle (-lookup env head)
-                #(let [{:keys [value]} %]
-                   (if (and (instance? Dynamic %)
+                #(let [{:keys [origin value]} %]
+                   (if (and (= origin :namespace)
                             (-> value meta :macro))
                      (thunk (Expand. value form) env)
                      (apply-args value tail env)))))
     (handle (thunk head env)
             #(apply-args % tail env))))
 
-(defrecord Environment [locals]
+(defrecord Environment [locals] ;TODO: Rename CljEnv, add namespace key
 
   IEnvironment
 
   (-lookup [_ sym]
     (if-let [[_ value] (find locals sym)]
-      (Answer. (Static. value))
+      (Answer. {:origin :locals :value value})
       (raise {:op ::resolve
               :sym sym
               :k #(if %
@@ -479,11 +472,11 @@
   (fn [& args]
     (apply static-invoke class member args)))
 
-(defn maybe-resolve [sym]
-  (if-let [x (resolve sym)]
-    (->Dynamic x)
+(defn try-lookup [sym]
+  (if-let [x (ns-resolve *ns* sym)] ;TODO: Get ns from Env
+    {:origin (if (var? x) :namespace :jvm) :value x}
     (try
-      (->Dynamic (clojure.lang.RT/classForName (name sym)))
+      {:origin :jvm :value (clojure.lang.RT/classForName (name sym))}
       (catch ClassNotFoundException _
         nil))))
 
@@ -500,16 +493,16 @@
 
    ::resolve
    (fn [{:keys [sym]}]
-     (or (maybe-resolve sym)
+     (or (try-lookup sym)
          (when-let [ns (namespace sym)]
-           (let [{:keys [value]} (maybe-resolve (symbol ns))
+           (let [{:keys [value]} (try-lookup (symbol ns))
                  n (name sym)]
              (when (instance? Class value)
-               (->Dynamic
-                 (try
-                   (.get (.getField value n) value)
-                   (catch NoSuchFieldException _
-                     (staticfn value n)))))))))
+               {:origin :jvm
+                :value (try
+                         (.get (.getField value n) value)
+                         (catch NoSuchFieldException _
+                           (staticfn value n)))})))))
 
    ::declare
    (fn [{:keys [sym]}]
@@ -736,6 +729,8 @@
 
   (eval '(defprotocol P))
   (eval '(defprotocol P (f [this])))
+
+  (eval '(var Class))
 
   ;TODO defprotocol
   ;TODO monitor-enter and monitor-exit
