@@ -159,7 +159,7 @@
 
 (defmethod eval-seq 'var
   [[_ sym] env]
-  (handle (raise {:op ::resolve :sym sym})
+  (handle (raise {:op ::resolve :env env :sym sym})
           (fn [{:keys [origin value]}]
             (assert (= origin :namespace))
             (Answer. value))))
@@ -441,14 +441,15 @@
     (handle (thunk head env)
             #(apply-args % tail env))))
 
-(defrecord Environment [locals] ;TODO: Rename CljEnv, add namespace key
+(defrecord CljEnv [namespace locals]
 
   IEnvironment
 
-  (-lookup [_ sym]
+  (-lookup [env sym]
     (if-let [[_ value] (find locals sym)]
       (Answer. {:origin :locals :value value})
       (raise {:op ::resolve
+              :env env
               :sym sym
               :k #(if %
                     (Answer. %)
@@ -472,8 +473,8 @@
   (fn [& args]
     (apply static-invoke class member args)))
 
-(defn try-lookup [sym]
-  (if-let [x (ns-resolve *ns* sym)] ;TODO: Get ns from Env
+(defn try-lookup [ns sym]
+  (if-let [x (ns-resolve ns sym)] ;TODO: Get ns from Env
     {:origin (if (var? x) :namespace :jvm) :value x}
     (try
       {:origin :jvm :value (clojure.lang.RT/classForName (name sym))}
@@ -492,10 +493,10 @@
      (apply f args))
 
    ::resolve
-   (fn [{:keys [sym]}]
-     (or (try-lookup sym)
+   (fn [{:keys [env sym]}]
+     (or (try-lookup (:namespace env) sym)
          (when-let [ns (namespace sym)]
-           (let [{:keys [value]} (try-lookup (symbol ns))
+           (let [{:keys [value]} (try-lookup (:namespace env) (symbol ns))
                  n (name sym)]
              (when (instance? Class value)
                {:origin :jvm
@@ -548,10 +549,11 @@
 
    })
 
-(def empty-env (Environment. {})) ;TODO This isn't empty, it's host-env.
+(defn ns-env []
+  (CljEnv. *ns* {}))
 
 (defn interpret
-  ([expr] (interpret expr empty-env))
+  ([expr] (interpret expr (ns-env)))
   ([expr env]
    (loop [f #(-eval expr env)]
      (let [x (f)]
@@ -566,7 +568,7 @@
 
 ;;TODO: Overload that takes an env.
 (defn eval [expr]
-  (let [x (interpret expr empty-env)]
+  (let [x (interpret expr (ns-env))]
     (if (answer? x)
       (:value x)
       (throw (ex-info (pr-str x) x)))))
