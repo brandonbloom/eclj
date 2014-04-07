@@ -169,7 +169,7 @@
           {:keys [params expr]} (arities (max argcount max-fixed-arity))
           env* (if name (assoc-in env [:locals name] this) env)
           ;;TODO: Don't generate form, destructure to env & use AST directly.
-          form (list 'clojure.core/let [params (list 'quote args)] expr)]
+          form `(let [~params '~args] ~expr)]
       (handler (thunk form env*) ->Answer)))
 
   clojure.lang.IFn
@@ -342,6 +342,14 @@
             (handle (thunk expr env)
                     #(raise {:op :assign-field :object instance
                              :field field :value %})))))
+
+(defmethod interpret* :loop
+  [{:keys [bindings expr env]}]
+  (let [syms (vec (take-nth 2 bindings))
+        inits (vec (take-nth 2 (next bindings)))]
+    ;;TODO: Generate AST directly instead of syntax forms.
+    (handle (interpret-items inits env)
+            #(thunk `((fn ~syms ~expr) ~@%) env))))
 
 (defmethod interpret* :recur
   [{:keys [args env]}]

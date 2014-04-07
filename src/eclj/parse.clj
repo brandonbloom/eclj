@@ -227,7 +227,10 @@
        :field (symbol (apply str (next (str field))))
        :expr expr})))
 
-;TODO (defmethod parse-seq 'loop*
+(defmethod parse-seq 'loop*
+  [[_ bindings & body :as form] env]
+  {:head :loop :form form :env env
+   :bindings bindings :expr (implicit-do body)})
 
 (defmethod parse-seq 'recur
   [[_ & args :as form] env]
