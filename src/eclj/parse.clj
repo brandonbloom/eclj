@@ -118,8 +118,7 @@
      :params params
      :expr (implicit-do body)}))
 
-(defmethod parse-seq 'fn*
-  [[_ & fn-tail :as form] env]
+(defn parse-fn [[_ & fn-tail]]
   ;;TODO: validate methods.
   (let [[name impl] (if (symbol? (first fn-tail))
                       [(first fn-tail) (next fn-tail)]
@@ -128,11 +127,22 @@
                                      (list impl)
                                      impl)]
                   (parse-method sig body))]
-    {:head :fn :form form :env env :name name
+    {:name name
      :arities (into {} (map (juxt :fixed-arity identity) methods))
      :max-fixed-arity (apply max (map :fixed-arity methods))}))
 
-;TODO (defmethod parse-seq 'letfn*
+(defmethod parse-seq 'fn*
+  [form env]
+  (assoc (parse-fn form) :head :fn :form form :env env))
+
+(defmethod parse-seq 'letfn*
+  [[_ bindings & body :as form] env]
+  {:head :letfn :form form :env env
+   :bindings (->> (next bindings)
+                  (take-nth 2)
+                  (map (comp (juxt :name identity) parse-fn))
+                  vec)
+   :expr (implicit-do body)})
 
 (defmethod parse-seq 'try
   [[_ & body :as form] env]
@@ -272,5 +282,10 @@
   (! '(fn* foo ([x] x) ([x y] y) ([x y & z] z)))
   (! '(set! x 1))
   (! '(set! (.x y) 1))
+  (! '(letfn* [even? (clojure.core/fn even? [x]
+                       (or (zero? x) (odd? (dec x))))
+               odd? (clojure.core/fn odd? [x]
+                      (and (not (zero? x)) (even? (dec x))))]
+        ((juxt even? odd?) 11)))
 
 )

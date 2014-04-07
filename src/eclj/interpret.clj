@@ -223,10 +223,21 @@
 
   )
 
+(defn syntax->fn [syntax]
+  (map->Fn (select-keys syntax [:name :arities :max-fixed-arity :env])))
+
+;;TODO: Can this just be a constant? parse would have to create the Fns.
+;; That would mean letfn doesn't need to do the conversion either.
 (defmethod interpret* :fn
   [syntax]
-  (let [m (select-keys syntax [:name :arities :max-fixed-arity :env])]
-    (Answer. (map->Fn m))))
+  (Answer. (syntax->fn syntax)))
+
+(defmethod interpret* :letfn
+  [{:keys [bindings expr env]}]
+  (let [bindings* (into {} (for [[name f] bindings]
+                             [name (syntax->fn (assoc f :env env))]))
+        env* (update-in env [:locals] merge bindings*)]
+    (thunk expr env*)))
 
 (defn exception-handler [catches default finally env]
   (fn handler [x k]
