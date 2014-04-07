@@ -1,5 +1,6 @@
 (ns eclj.core
   (:refer-clojure :exclude [eval])
+  (:require [eclj.env :as env])
   (:import [clojure.lang Reflector]))
 
 
@@ -9,10 +10,6 @@
 
 (defprotocol Expression
   (-eval [expr env]))
-
-(defprotocol IEnvironment
-  (-lookup [env sym])
-  (-extend [env sym val]))
 
 ;; Wraps all interpreter intermediate values.
 (defrecord Answer [value])
@@ -27,7 +24,7 @@
 
 ;;TODO: Implement restarts, etc.
 (defn signal [condition]
-  (raise (merge {:op ::condition} condition)))
+  (raise (merge {:op :condition} condition)))
 
 (defn answer? [x]
   (instance? Answer x))
@@ -49,6 +46,16 @@
     (ifn? x) #(handle (x) k)
     :else (unexpected x)))
 
+(defn lookup [{:keys [locals] :as env} sym]
+  (if-let [[_ value] (find locals sym)]
+    (Answer. {:origin :locals :value value})
+    (raise {:op :resolve
+            :env env
+            :sym sym
+            :k #(if %
+                  (Answer. %)
+                  (signal {:error :undefined :sym sym}))})))
+
 (defmulti eval-seq (fn [s env] (first s)))
 
 (extend-protocol Expression
@@ -63,12 +70,12 @@
 
   clojure.lang.Symbol
   (-eval [sym env]
-    (handle (-lookup env sym)
+    (handle (lookup env sym)
             (fn [{:keys [origin value]}]
                (case origin
                  :locals (Answer. value)
                  :jvm (Answer. value)
-                 :namespace (raise {:op ::deref :ref value})))))
+                 :namespace (raise {:op :deref :ref value})))))
 
   clojure.lang.ISeq
   (-eval [list env]
@@ -102,7 +109,7 @@
 (defrecord Bind [sym value expr]
   Expression
   (-eval [_ env]
-    (thunk expr (-extend env sym value))))
+    (thunk expr (assoc-in env [:locals sym] value))))
 
 (defrecord Let [sym init expr]
   Expression
@@ -123,15 +130,15 @@
 
   Object
   (-apply [this arg]
-    (signal {:error ::not-callable :f this :args arg})) ;TODO: NotApplicable?
+    (signal {:error :not-callable :f this :args arg})) ;TODO: NotApplicable?
 
   clojure.lang.IFn
   (-apply [this arg]
-    (raise {:op ::invoke :f this :args arg}))
+    (raise {:op :invoke :f this :args arg}))
 
   clojure.lang.Var
   (-apply [this arg]
-    (raise {:op ::invoke :f this :args arg}))
+    (raise {:op :invoke :f this :args arg}))
 
   ;TODO: Special case symbols & keywords ?
 
@@ -159,7 +166,7 @@
 
 (defmethod eval-seq 'var
   [[_ sym] env]
-  (handle (raise {:op ::resolve :env env :sym sym})
+  (handle (raise {:op :resolve :env env :sym sym})
           (fn [{:keys [origin value]}]
             (assert (= origin :namespace))
             (Answer. value))))
@@ -251,7 +258,7 @@
       (effect? x)
         (let [error (:error x)
               catch (some (fn [{:keys [class sym expr] :as catch}]
-                            (when (and (= (:op x) ::throw)
+                            (when (and (= (:op x) :throw)
                                        (instance? class error))
                               catch))
                             catches)]
@@ -320,7 +327,7 @@
 (defmethod eval-seq 'throw
   [[_ expr] env]
   (handle (thunk expr env)
-          #(raise {:op ::throw :error %})))
+          #(raise {:op :throw :error %})))
 
 (defmethod eval-seq 'def
   [[_ & body] env]
@@ -331,8 +338,8 @@
         sym* (vary-meta sym assoc :doc doc)]
     (if (> (count body) 1)
       (handle (thunk expr env)
-              #(raise {:op ::define :sym sym* :value %}))
-      (raise {:op ::declare :sym sym*}))))
+              #(raise {:op :define :sym sym* :value %}))
+      (raise {:op :declare :sym sym*}))))
 
 (defmethod eval-seq 'new
   [[_ sym & args] env]
@@ -340,7 +347,7 @@
           (fn [class] ;TODO: Validate
             (fn []
               (handle (eval-items (vec args) env)
-                      #(raise {:op ::new :class class :args %}))))))
+                      #(raise {:op :new :class class :args %}))))))
 
 (defmethod eval-seq '.
   [[_ expr & body] env]
@@ -350,7 +357,7 @@
     (handle (thunk expr env)
             (fn [object]
               (handle (eval-items (vec args) env)
-                      #(raise {:op ::interop
+                      #(raise {:op :interop
                                :object object
                                :member member
                                :args %}))))))
@@ -367,17 +374,17 @@
 (defmethod eval-seq 'set!
   [[_ location expr] env]
   (if (symbol? location)
-    (handle (-lookup env location)
+    (handle (lookup env location)
             (fn [{:keys [origin value]}]
               (if (= origin :namespace)
                 (handle (thunk expr env)
-                        #(raise {:op ::assign-var :var value :value %}))
+                        #(raise {:op :assign-var :var value :value %}))
                 (signal {:error :not-assignable :location location}))))
     (let [[_ obj sym :as xx] (expand-dot location)] ;TODO: Validate.
       (handle (thunk obj env)
               (fn [instance]
                 (handle (thunk expr env)
-                        #(raise {:op ::assign-field :object instance
+                        #(raise {:op :assign-field :object instance
                                  :field sym :value %})))))))
 
 (defmethod eval-seq 'loop*
@@ -389,11 +396,11 @@
 (defmethod eval-seq 'recur
   [[_ & args] env]
   (handle (eval-items (reverse args) env)
-          #(raise {:op ::recur :args %})))
+          #(raise {:op :recur :args %})))
 
 (defmethod eval-seq 'clojure.core/import*
   [[_ sym] env]
-  (raise {:op ::import :sym sym}))
+  (raise {:op :import :sym sym}))
 
 ;;TODO: Don't capture unqualified 'case
 (defmethod eval-seq 'case
@@ -411,7 +418,7 @@
                 (thunk e env)
                 (if default?
                   (thunk (last clauses) env)
-                  (signal {:error ::no-matching-clause :value value})))))))
+                  (signal {:error :no-matching-clause :value value})))))))
 
 ;;TODO: Proper effects for deftype and friends.
 (defn host-eval [form env]
@@ -432,7 +439,7 @@
   (if (symbol? head)
     (if-let [expanded (expand-dot form)]
         (thunk expanded env)
-        (handle (-lookup env head)
+        (handle (lookup env head)
                 #(let [{:keys [origin value]} %]
                    (if (and (= origin :namespace)
                             (-> value meta :macro))
@@ -441,119 +448,8 @@
     (handle (thunk head env)
             #(apply-args % tail env))))
 
-(defrecord CljEnv [namespace locals]
-
-  IEnvironment
-
-  (-lookup [env sym]
-    (if-let [[_ value] (find locals sym)]
-      (Answer. {:origin :locals :value value})
-      (raise {:op ::resolve
-              :env env
-              :sym sym
-              :k #(if %
-                    (Answer. %)
-                    (signal {:error ::undefined :sym sym}))})))
-
-  (-extend [this sym value]
-    (assoc-in this [:locals sym] value))
-
-  )
-
-(defn static-invoke [class member & args]
-  (if (zero? (count args))
-    (try
-      (Reflector/getStaticField class member)
-      (catch Exception e
-        (Reflector/invokeStaticMethod
-          class member clojure.lang.RT/EMPTY_ARRAY)))
-    (Reflector/invokeStaticMethod class member (object-array args))))
-
-(defn staticfn [class member]
-  (fn [& args]
-    (apply static-invoke class member args)))
-
-(defn try-lookup [ns sym]
-  (if-let [x (ns-resolve ns sym)] ;TODO: Get ns from Env
-    {:origin (if (var? x) :namespace :jvm) :value x}
-    (try
-      {:origin :jvm :value (clojure.lang.RT/classForName (name sym))}
-      (catch ClassNotFoundException _
-        nil))))
-
-(def root-handlers
-  {
-
-   ::deref
-   (fn [{:keys [ref]}]
-     (deref ref))
-
-   ::invoke
-   (fn [{:keys [f args]}]
-     (apply f args))
-
-   ::resolve
-   (fn [{:keys [env sym]}]
-     (or (try-lookup (:namespace env) sym)
-         (when-let [ns (namespace sym)]
-           (let [{:keys [value]} (try-lookup (:namespace env) (symbol ns))
-                 n (name sym)]
-             (when (instance? Class value)
-               {:origin :jvm
-                :value (try
-                         (.get (.getField value n) value)
-                         (catch NoSuchFieldException _
-                           (staticfn value n)))})))))
-
-   ::declare
-   (fn [{:keys [sym]}]
-     (intern *ns* sym))
-
-   ::define
-   (fn [{:keys [sym value]}]
-     (let [var (intern *ns* sym value)]
-       (when (-> sym meta :dynamic)
-         (.setDynamic var))
-       var))
-
-   ::new
-   (fn [{:keys [class args]}]
-     (Reflector/invokeConstructor class (object-array args)))
-
-   ::interop
-   (fn [{:keys [object member args]}]
-     (let [s (str member)
-           s (if (.startsWith s "-")
-               (apply str (next s))
-               s)]
-       (if (instance? Class object)
-         (apply static-invoke object s args)
-         (if (zero? (count args))
-           (Reflector/invokeNoArgInstanceMember object s)
-           (Reflector/invokeInstanceMember s object (object-array args))))))
-
-   ::assign-var
-   (fn [{:keys [var value]}]
-     (var-set var value))
-
-   ::assign-field ;TODO: Test this.
-   (fn [{:keys [object field value]}]
-     (let [field (name field)]
-       (if (instance? Class object)
-         (Reflector/setStaticField object field value)
-         (Reflector/setInstanceField object field value))))
-
-   ::import
-   (fn [{:keys [sym]}]
-     (.importClass *ns* (clojure.lang.RT/classForName (name sym))))
-
-   })
-
-(defn ns-env []
-  (CljEnv. *ns* {}))
-
 (defn interpret
-  ([expr] (interpret expr (ns-env)))
+  ([expr] (interpret expr (env/ns-env)))
   ([expr env]
    (loop [f #(-eval expr env)]
      (let [x (f)]
@@ -561,28 +457,27 @@
          (ifn? x) (recur x)
          (answer? x) x
          (effect? x) (let [{:keys [op k]} x]
-                       (if-let [handler (root-handlers op)]
+                       (if-let [handler (get-in env [:kernel op])]
                          (recur #(k (handler x)))
                          x))
          :else (unexpected x))))))
 
 ;;TODO: Overload that takes an env.
 (defn eval [expr]
-  (let [x (interpret expr (ns-env))]
+  (let [x (interpret expr (env/ns-env))]
     (if (answer? x)
       (:value x)
       (throw (ex-info (pr-str x) x)))))
-
 
 (defn recur-handler [f env]
   (fn handler [x k]
     (cond
       (answer? x) #(k (:value x))
       (effect? x) (let [{effectk :k :keys [op]} x]
-                    (if (= ::recur op)
+                    (if (= :recur op)
                       (if (= effectk ->Answer)
                         (thunk (Apply. f (:args x)) env)
-                        (signal {:error ::non-tail-position}))
+                        (signal {:error :non-tail-position}))
                       (propegate handler x ->Answer)))
       (ifn? x) #(handler (x) k)
       :else (unexpected x))))
@@ -592,7 +487,7 @@
   Applicable
   (-apply [this args]
     (let [handler (recur-handler this env)]
-      (handler (thunk expr (-extend env param args))
+      (handler (thunk expr (assoc-in env [:locals param] args))
                ->Answer)))
 
   clojure.lang.IFn
