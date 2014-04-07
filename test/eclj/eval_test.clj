@@ -1,9 +1,9 @@
-(ns eclj.core-test
+(ns eclj.eval-test
   (:refer-clojure :exclude [eval])
-  (:require [eclj.core :as eclj]))
+  (:require [eclj.eval :as eclj]))
 
 (defn eval [expr]
-  (let [ret (eclj.core/eval expr)]
+  (let [ret (eclj/eval expr)]
     (assert (= (clojure.core/eval expr) ret)
             (str (pr-str expr) " evaluated to " (pr-str ret)))
     (print ".") ;TODO: Better results reporting
@@ -38,7 +38,7 @@
 (eval '(do))
 (eval '(do :x))
 (eval '(do :x :y))
-(eval '(with-out-str (do (prn :x) (prn :y))))
+(eval ''(with-out-str (do (prn :x) (prn :y))))
 (eval '(with-out-str (do (prn :x) (prn :y) (prn :z))))
 
 (eval '(-> 8 inc (- 3)))
@@ -50,6 +50,7 @@
 
 (eval ''x)
 
+(eval '((fn [] 1)))
 (eval '((fn [x] x) 5))
 (eval '(apply (fn [& args] (apply + args)) (range 1000)))
 
@@ -102,17 +103,19 @@
             acc
             (recur (+ acc n) (dec n)))))
 
-(eval '(case 5
-         5 :number))
+;(eval '(case 5
+;         5 :number))
+;
+;(eval '(case 5
+;         5 :number
+;         :default))
+;
+;(eval '(case "str"
+;         5 :number
+;         :default))
+;
+;(eval '(case [1 2 3]
+;         5 :number
+;         [1 2 3] :vector))
 
-(eval '(case 5
-         5 :number
-         :default))
-
-(eval '(case "str"
-         5 :number
-         :default))
-
-(eval '(case [1 2 3]
-         5 :number
-         [1 2 3] :vector))
+(eval '(import 'java.util.Date))
