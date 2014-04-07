@@ -14,7 +14,7 @@ Kiselyov's [Extensible Effects & Interpreters][1] page provides an excellent
 entry point.
 
 I'm also interested in building an evaluator that includes an extensible
-abstract interpreter and extensible JIT compiler. See [Lancet][2]. 
+abstract interpreter and extensible JIT compiler. See [Lancet][2].
 
 
 ## Status
@@ -29,7 +29,7 @@ Notably, forms related to classes delegate to clojure.core/eval:
 
 ## Usage
 
-The only public API is `eclj.core/eval`. It is used just like Clojure's eval.
+The only public API is `eclj.eval/eval`; works just like `clojure.core/eval`.
 
 
 ## License
