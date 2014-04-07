@@ -32,8 +32,9 @@
   ([expr env]
    (interpret (parse expr env))))
 
-(defn- thunk [expr env]
-  #(interpret* expr env))
+(defn thunk
+  ([syntax] #(interpret* syntax))
+  ([expr env] #(interpret* (parse expr env))))
 
 (defn raise [action]
   (map->Effect (merge {:k ->Answer} action)))
@@ -63,17 +64,34 @@
                   (signal {:error :undefined :sym sym}))})))
 
 (defmethod interpret* :constant
-  [{:keys [form]}]
-  (Answer. form))
+  [{:keys [value]}]
+  (Answer. value))
+
+(defn interpret-items [coll env]
+  ((fn rec [dest src]
+     (if (empty? src)
+       (Answer. dest)
+       (handle (thunk (first src) env)
+               #(rec (conj dest %) (next src)))))
+   (empty coll) coll))
+
+(defmethod interpret* :collection
+  [{:keys [coll env]}]
+  (interpret-items coll env))
 
 (defmethod interpret* :name
-  [{:keys [form env]}]
-  (handle (lookup env form)
+  [{:keys [sym env]}]
+  (handle (lookup env sym)
           (fn [{:keys [origin value]}]
             (case origin
               :locals (Answer. value)
               :host (Answer. value)
               :namespace (raise {:op :deref :ref value})))))
+
+(defmethod interpret* :if
+  [{:keys [test then else env]}]
+  (handle (thunk test env)
+          #(thunk (if % then else) env)))
 
 (defmethod interpret* :var
   [{:keys [sym env]}]
@@ -81,3 +99,59 @@
           (fn [{:keys [origin value]}]
             (assert (= origin :namespace))
             (Answer. value))))
+
+(defmethod interpret* :do
+  [{:keys [statements ret env]}]
+  (if (seq statements)
+    (handle (thunk {:head :do :env env
+                    :statements (pop statements)
+                    :ret (peek statements)})
+            (fn [_] (thunk ret env)))
+    (thunk ret env)))
+
+(defprotocol Applicable
+  (-apply [this arg]))
+
+(extend-protocol Applicable
+
+  Object
+  (-apply [this arg]
+    (signal {:error :not-callable :f this :args arg}))
+
+  clojure.lang.IFn
+  (-apply [this arg]
+    (raise {:op :invoke :f this :args arg}))
+
+  clojure.lang.Var
+  (-apply [this arg]
+    (raise {:op :invoke :f this :args arg}))
+
+  ;TODO: Special case symbols & keywords ?
+
+  )
+
+(defn apply-args [f args env]
+  (handle (interpret-items (reverse args) env)
+          #(thunk {:head :apply :f f :arg % :env env})))
+
+(defmethod interpret* :apply
+  [{:keys [f arg]}]
+  (-apply f arg))
+
+(defmethod interpret* :invoke
+  [{:keys [f args env form]}]
+  (if (symbol? f)
+    (handle (lookup env f)
+            #(let [{:keys [origin value]} %]
+               (if (and (= origin :namespace)
+                        (-> value meta :macro))
+                 (thunk {:head :expand :macro value :form form :env env})
+                 (apply-args value args env))))
+    (handle (thunk f env)
+            #(apply-args % args env))))
+
+(defmethod interpret* :expand
+  [{:keys [macro form env]}]
+  (handle (thunk {:head :apply :env env :f macro
+                  :arg (list* form env (next form))})
+          #(thunk % env)))

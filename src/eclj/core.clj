@@ -175,8 +175,7 @@
   [[_ & body] env]
   (if (empty? body)
     (Answer. nil)
-    (let [x (first body)
-          f (thunk (first body) env)]
+    (let [f (thunk (first body) env)]
       (if-let [xs (next body)]
         (handle f (fn [_] (thunk (cons 'do xs) env)))
         f))))

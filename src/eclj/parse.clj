@@ -21,28 +21,28 @@
   {:head :constant :form x :env env :value x})
 
 (defn parse-collection [coll env]
-  {:head :collection :form coll :env env})
+  {:head :collection :form coll :env env :coll coll})
 
 (doseq [t [nil java.lang.Object]]
   (extend t Expression {:-parse parse-constant}))
 
 (defmulti parse-seq (fn [xs env] (first xs)))
 
-(defn parse-apply [[f & args :as form] env]
-  {:head :apply :form form :env env :f f :args (vec args)})
+(defn parse-invoke [[f & args :as form] env]
+  {:head :invoke :form form :env env :f f :args (vec args)})
 
 (extend-protocol Expression
 
   clojure.lang.Symbol
   (-parse [sym env]
-    {:head :name :form sym :env env})
+    {:head :name :form sym :env env :sym sym})
 
   clojure.lang.ISeq
   (-parse [xs env]
     (cond
       (empty? xs) (parse-constant xs env)
       (symbol? (first xs)) (parse-seq xs env)
-      :else (parse-apply xs env)))
+      :else (parse-invoke xs env)))
 
   clojure.lang.AMapEntry
   (-parse [kvp env]
@@ -59,10 +59,22 @@
            clojure.lang.PersistentVector]]
   (extend t Expression {:-parse parse-collection}))
 
+(defn expand-dot [[head & tail :as form] env]
+  (let [s (str head)]
+    (cond
+      (.endsWith s ".") (let [class (symbol (apply str (butlast s)))]
+                          {:head :new :form form :env env
+                           :class class :args (vec tail)})
+      (.startsWith s ".") (let [member (symbol (apply str (next s)))
+                                [obj & args] tail]
+                            {:head :interop :form form :env env
+                             :target obj :member member :args (vec args)}))))
+
 (defmethod parse-seq :default
   [form env]
-  ;TODO: expand-dot
-  (parse-apply form env))
+  (or (and (symbol? (first form)) (expand-dot form env))
+      {:head :invoke :form form :env env
+       :f (first form) :args (vec (rest form))}))
 
 (defmethod parse-seq 'if
   [[_ test then else :as form] env]
@@ -75,13 +87,15 @@
 
 (defmethod parse-seq 'do
   [[_ & body :as form] env]
-  (let [v (vec body)]
-    {:head :do :form form :env env
-     :statements (pop v) :ret (peek v)}))
+  (if (seq body)
+    (let [v (vec body)]
+      {:head :do :form form :env env
+       :statements (pop v) :ret (peek v)})
+    {:head :constant :form form :env env :value nil}))
 
 (defmethod parse-seq 'quote
   [[_ value :as form] env]
-  {:head :quote :form form :env env :value value})
+  {:head :constant :form form :env env :value value})
 
 (defn implicit-do [body]
   (case (count (take 2 body))
@@ -197,6 +211,7 @@
   (! '(let* []))
   (! '(let* [x 1 y 2] (+ x y)))
   (! '(let* [x 1 y 2] (println "!") (+ x y)))
+  (! '(do))
   (! '(try))
   (! '(try 1))
   (! '(try 1 2))
@@ -212,5 +227,6 @@
   (! '(def x 1))
   (! '(def x "foo" 1))
   (! '(. x y z))
+  (! '(.x y z))
 
 )
