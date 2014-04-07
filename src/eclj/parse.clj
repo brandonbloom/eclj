@@ -236,8 +236,11 @@
   [[_ & args :as form] env]
   {:head :recur :form form :env env :args (vec args)})
 
-;TODO (defmethod parse-seq 'clojure.core/import*
-;TODO (defmethod parse-seq 'case
+(defmethod parse-seq 'clojure.core/import*
+  [[_ sym :as form] env]
+  {:head :import :form form :env env :sym sym})
+
+
 ;TODO (defmethod parse-seq 'clojure.core/case
 ;TODO (defmethod parse-seq 'deftype* [form env]
 ;TODO (defmethod parse-seq 'reify* [form env]

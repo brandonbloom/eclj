@@ -355,3 +355,7 @@
   [{:keys [args env]}]
   (handle (interpret-items args env)
           #(raise {:op :recur :args %})))
+
+(defmethod interpret* :import
+  [{:keys [sym]}]
+  (raise {:op :import :sym sym}))
