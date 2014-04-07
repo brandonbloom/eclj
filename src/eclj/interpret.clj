@@ -295,3 +295,39 @@
             (fn []
               (handle (interpret-items args env)
                       #(raise {:op :new :class class* :args %}))))))
+
+(defmethod interpret* :interop
+  [{:keys [target member args env]}]
+  (handle (thunk target env)
+          (fn [object]
+            (handle (interpret-items (vec args) env)
+                    #(raise {:op :interop
+                             :object object
+                             :member member
+                             :args %})))))
+
+(defmethod interpret* :declare
+  [{:keys [sym]}]
+  (raise {:op :declare :sym sym}))
+
+(defmethod interpret* :define
+  [{:keys [sym expr env]}]
+  (handle (thunk expr env)
+          #(raise {:op :define :sym sym :value %})))
+
+(defmethod interpret* :assign-var
+  [{:keys [name expr env]}]
+  (handle (lookup env name)
+          (fn [{:keys [origin value]}]
+            (if (= origin :namespace)
+              (handle (thunk expr env)
+                      #(raise {:op :assign-var :var value :value %}))
+              (signal {:error :not-assignable :location value})))))
+
+(defmethod interpret* :assign-field
+  [{:keys [object field expr env]}]
+  (handle (thunk object env)
+          (fn [instance]
+            (handle (thunk expr env)
+                    #(raise {:op :assign-field :object instance
+                             :field field :value %})))))

@@ -205,7 +205,18 @@
     {:head :interop :form form :env env
      :target target :member member :args (vec args)}))
 
-;TODO (defmethod parse-seq 'set!
+(defmethod parse-seq 'set!
+  [[_ location expr :as form] env]
+  (if (symbol? location)
+    {:head :assign-var :form form :env env
+     :name location :expr expr}
+    (let [[field object] location]
+      ;;TODO: Validate location.
+      {:head :assign-field :form form :env env
+       :object object
+       :field (symbol (apply str (next (str field))))
+       :expr expr})))
+
 ;TODO (defmethod parse-seq 'loop*
 ;TODO (defmethod parse-seq 'recur
 ;TODO (defmethod parse-seq 'clojure.core/import*
@@ -259,5 +270,7 @@
   (! '(fn* ([x] x) ([x y] y)))
   (! '(fn* foo ([x] x) ([x y] y)))
   (! '(fn* foo ([x] x) ([x y] y) ([x y & z] z)))
+  (! '(set! x 1))
+  (! '(set! (.x y) 1))
 
 )
