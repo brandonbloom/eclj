@@ -110,7 +110,28 @@
                    (partition 2 bindings))
    :expr (implicit-do body)})
 
-;TODO (defmethod parse-seq 'fn*
+(defn parse-method [params body]
+  ;;TODO: validate signature.
+  (let [[fixed [_ varargs]] (split-with (complement '#{&}) params)]
+    {:fixed-arity (count fixed)
+     :variadic? (boolean varargs)
+     :params params
+     :expr (implicit-do body)}))
+
+(defmethod parse-seq 'fn*
+  [[_ & fn-tail :as form] env]
+  ;;TODO: validate methods.
+  (let [[name impl] (if (symbol? (first fn-tail))
+                      [(first fn-tail) (next fn-tail)]
+                      [nil fn-tail])
+        methods (for [[sig & body] (if (vector? (first impl))
+                                     (list impl)
+                                     impl)]
+                  (parse-method sig body))]
+    {:head :fn :form form :env env :name name
+     :arities (into {} (map (juxt :fixed-arity identity) methods))
+     :max-fixed-arity (apply max (map :fixed-arity methods))}))
+
 ;TODO (defmethod parse-seq 'letfn*
 
 (defmethod parse-seq 'try
@@ -229,5 +250,14 @@
   (! '(def x "foo" 1))
   (! '(. x y z))
   (! '(.x y z))
+  (! '(fn* []))
+  (! '(fn* [] 1))
+  (! '(fn* foo [] 1))
+  (! '(fn* foo [x] x))
+  (! '(fn* foo [x y & z] z))
+  (! '(fn* foo [x y & z] x y z))
+  (! '(fn* ([x] x) ([x y] y)))
+  (! '(fn* foo ([x] x) ([x y] y)))
+  (! '(fn* foo ([x] x) ([x y] y) ([x y & z] z)))
 
 )

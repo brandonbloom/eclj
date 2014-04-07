@@ -121,6 +121,113 @@
                      :bindings (vec bindings*) :expr expr}))
     (thunk expr env)))
 
+(defprotocol Applicable
+  (-apply [this arg]))
+
+(extend-protocol Applicable
+
+  Object
+  (-apply [this arg]
+    (signal {:error :not-callable :f this :args arg}))
+
+  clojure.lang.IFn
+  (-apply [this arg]
+    (raise {:op :invoke :f this :args arg}))
+
+  clojure.lang.Var
+  (-apply [this arg]
+    (raise {:op :invoke :f this :args arg}))
+
+  ;TODO: Special case symbols & keywords ?
+
+  )
+
+(defn recur-handler [f env]
+  (fn handler [x k]
+    (cond
+      (answer? x) #(k (:value x))
+      (effect? x) (let [{effectk :k :keys [op]} x]
+                    (if (= :recur op)
+                      (if (= effectk ->Answer)
+                        (thunk {:head :apply :f f :arg (:args x) :env env})
+                        (signal {:error :non-tail-position}))
+                      (propegate handler x ->Answer)))
+      (ifn? x) #(handler (x) k)
+      :else (unexpected x))))
+
+(defn fn-apply [{:keys [env] :as f} arg]
+  (interpret {:head :apply :f f :arg arg :env env}))
+
+(defrecord Fn [name arities max-fixed-arity env]
+
+  Applicable
+  (-apply [this args]
+    (let [handler (recur-handler this env)
+          argcount (count (if (counted? args)
+                            args
+                            (take max-fixed-arity args)))
+          {:keys [params expr]} (arities (max argcount max-fixed-arity))
+          env* (if name (assoc-in env [:locals name] this) env)
+          ;;TODO: Don't generate form, destructure to env & use AST directly.
+          form (list 'clojure.core/let [params (list 'quote args)] expr)]
+      (handler (thunk form env*) ->Answer)))
+
+  clojure.lang.IFn
+  (applyTo [this args]
+    (fn-apply this args))
+  ;; *cringe*
+  (invoke [this]
+    (fn-apply this []))
+  (invoke [this a]
+    (fn-apply this [a]))
+  (invoke [this a b]
+    (fn-apply this [a b]))
+  (invoke [this a b c]
+    (fn-apply this [a b c]))
+  (invoke [this a b c d]
+    (fn-apply this [a b c d]))
+  (invoke [this a b c d e]
+    (fn-apply this [a b c d e]))
+  (invoke [this a b c d e f]
+    (fn-apply this [a b c d e f]))
+  (invoke [this a b c d e f g]
+    (fn-apply this [a b c d e f g]))
+  (invoke [this a b c d e f g h]
+    (fn-apply this [a b c d e f g h]))
+  (invoke [this a b c d e f g h i]
+    (fn-apply this [a b c d e f g h i]))
+  (invoke [this a b c d e f g h i j]
+    (fn-apply this [a b c d e f g h i j]))
+  (invoke [this a b c d e f g h i j k]
+    (fn-apply this [a b c d e f g h i j k]))
+  (invoke [this a b c d e f g h i j k l]
+    (fn-apply this [a b c d e f g h i j k l]))
+  (invoke [this a b c d e f g h i j k l m]
+    (fn-apply this [a b c d e f g h i j k l m]))
+  (invoke [this a b c d e f g h i j k l m n]
+    (fn-apply this [a b c d e f g h i j k l m n]))
+  (invoke [this a b c d e f g h i j k l m n o]
+    (fn-apply this [a b c d e f g h i j k l m n o]))
+  (invoke [this a b c d e f g h i j k l m n o p]
+    (fn-apply this [a b c d e f g h i j k l m n o p]))
+  (invoke [this a b c d e f g h i j k l m n o p q]
+    (fn-apply this [a b c d e f g h i j k l m n o p q]))
+  (invoke [this a b c d e f g h i j k l m n o p q r]
+    (fn-apply this [a b c d e f g h i j k l m n o p q r]))
+  (invoke [this a b c d e f g h i j k l m n o p q r s]
+    (fn-apply this [a b c d e f g h i j k l m n o p q r s]))
+  (invoke [this a b c d e f g h i j k l m n o p q r s t]
+    (fn-apply this [a b c d e f g h i j k l m n o p q r s t]))
+  (invoke [this a b c d e f g h i j k l m n o p q r s t rest]
+    (fn-apply this (concat [a b c d e f g h i j k l m n o p q r s t] rest)))
+
+  )
+
+(defmethod interpret* :fn
+  [syntax]
+  (let [m (select-keys syntax [:name :arities :max-fixed-arity :env])]
+    (Answer. (map->Fn m))))
+
 (defn exception-handler [catches default finally env]
   (fn handler [x k]
     (cond
@@ -150,26 +257,10 @@
             (let [handler (exception-handler catches default finally env)]
               (handler (thunk try env) ->Answer)))))
 
-(defprotocol Applicable
-  (-apply [this arg]))
-
-(extend-protocol Applicable
-
-  Object
-  (-apply [this arg]
-    (signal {:error :not-callable :f this :args arg}))
-
-  clojure.lang.IFn
-  (-apply [this arg]
-    (raise {:op :invoke :f this :args arg}))
-
-  clojure.lang.Var
-  (-apply [this arg]
-    (raise {:op :invoke :f this :args arg}))
-
-  ;TODO: Special case symbols & keywords ?
-
-  )
+(defmethod interpret* :throw
+  [{:keys [expr env]}]
+  (handle (thunk expr env)
+          #(raise {:op :throw :error %})))
 
 (defn apply-args [f args env]
   (handle (interpret-items (reverse args) env)

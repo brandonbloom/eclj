@@ -574,6 +574,7 @@
   (eval '(if xx 5))
   (eval 'foo)
 
+  (eval '(fn []))
   (eval '(fn [x] x))
   (eval '(fn ([x] x)))
   (eval '(fn f [x] x))
@@ -630,6 +631,5 @@
 
   ;TODO defprotocol
   ;TODO monitor-enter and monitor-exit
-
 
 )
