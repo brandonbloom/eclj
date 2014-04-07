@@ -104,8 +104,8 @@
     (list* 'do body)))
 
 (defmethod parse-seq 'let*
-  [[_ bindings & body] env]
-  {:head :let
+  [[_ bindings & body :as form] env]
+  {:head :let :form form :env env
    :bindings (mapv (fn [[name init]] {:name name :init init})
                    (partition 2 bindings))
    :expr (implicit-do body)})
@@ -209,6 +209,7 @@
   (! '(f x))
   (! '(quote (f x)))
   (! '(let* []))
+  (! '(let* [x 1] x))
   (! '(let* [x 1 y 2] (+ x y)))
   (! '(let* [x 1 y 2] (println "!") (+ x y)))
   (! '(do))

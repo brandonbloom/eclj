@@ -109,6 +109,47 @@
             (fn [_] (thunk ret env)))
     (thunk ret env)))
 
+(defmethod interpret* :bind
+  [{:keys [name value expr env]}]
+  (thunk expr (assoc-in env [:locals name] value)))
+
+(defmethod interpret* :let
+  [{:keys [bindings expr env]}]
+  (if-let [[{:keys [name init]} & bindings*] (seq bindings)]
+    (handle (thunk init env)
+            #(thunk {:head :let :env (assoc-in env [:locals name] %)
+                     :bindings (vec bindings*) :expr expr}))
+    (thunk expr env)))
+
+(defn exception-handler [catches default finally env]
+  (fn handler [x k]
+    (cond
+      (answer? x) #(handle (thunk finally env)
+                           (fn [_] (fn [] (k (:value x)))))
+      (effect? x)
+        (let [error (:error x)
+              catch (some (fn [{:keys [class sym expr] :as catch}]
+                            (when (and (= (:op x) :throw)
+                                       (instance? class error))
+                              catch))
+                            catches)]
+          (if-let [{:keys [name expr]} (or catch default)]
+            #(handle (thunk {:head :bind :env env
+                             :name name :value error :expr expr})
+                     (fn [y]
+                       (handle (thunk finally env)
+                               (fn [_] (k y)))))
+            (propegate handler x ->Answer)))
+      (ifn? x) #(handler (x) k)
+      :else (unexpected x))))
+
+(defmethod interpret* :try
+  [{:keys [try catches default finally env]}]
+  (handle (interpret-items (mapv :type catches) env)
+          (fn [classes] ;TODO: Ensure items are exception classes.
+            (let [handler (exception-handler catches default finally env)]
+              (handler (thunk try env) ->Answer)))))
+
 (defprotocol Applicable
   (-apply [this arg]))
 
@@ -155,3 +196,11 @@
   (handle (thunk {:head :apply :env env :f macro
                   :arg (list* form env (next form))})
           #(thunk % env)))
+
+(defmethod interpret* :new
+  [{:keys [class args env]}]
+  (handle (thunk class env)
+          (fn [class*] ;TODO: Validate
+            (fn []
+              (handle (interpret-items args env)
+                      #(raise {:op :new :class class* :args %}))))))
