@@ -228,7 +228,11 @@
        :expr expr})))
 
 ;TODO (defmethod parse-seq 'loop*
-;TODO (defmethod parse-seq 'recur
+
+(defmethod parse-seq 'recur
+  [[_ & args :as form] env]
+  {:head :recur :form form :env env :args (vec args)})
+
 ;TODO (defmethod parse-seq 'clojure.core/import*
 ;TODO (defmethod parse-seq 'case
 ;TODO (defmethod parse-seq 'clojure.core/case

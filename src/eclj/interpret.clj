@@ -342,3 +342,8 @@
             (handle (thunk expr env)
                     #(raise {:op :assign-field :object instance
                              :field field :value %})))))
+
+(defmethod interpret* :recur
+  [{:keys [args env]}]
+  (handle (interpret-items args env)
+          #(raise {:op :recur :args %})))
