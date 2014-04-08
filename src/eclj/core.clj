@@ -1,10 +1,12 @@
 (ns eclj.core
   (:refer-clojure :exclude [eval case])
   (:require [eclj.eval]
-            [eclj.env :as env]))
+            [eclj.env :as env]
+            [eclj.interpret :refer (interpreter)]))
 
 (defn eval [x]
-  (eclj.eval/eval x (env/ns-env)))
+  (binding [eclj.eval/*evaluator* interpreter]
+    (eclj.eval/eval x (env/ns-env))))
 
 (defmacro case [e & clauses]
   (let [default? (odd? (count clauses))

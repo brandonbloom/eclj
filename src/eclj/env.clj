@@ -17,10 +17,16 @@
   (fn [& args]
     (apply static-invoke class member args)))
 
+(def patches {#'clojure.core/case 'eclj.core/case})
+
 (defn try-lookup [ns sym]
   (try
     (if-let [x (ns-resolve ns sym)]
-      {:origin (if (var? x) :namespace :host) :value x}
+      (if (var? x)
+        (if-let [patch (patches x)]
+          (try-lookup ns patch)
+          {:origin :namespace :value x})
+        {:origin :host :value x})
       {:origin :host :value (clojure.lang.RT/classForName (name sym))})
     (catch ClassNotFoundException e
       nil)))
