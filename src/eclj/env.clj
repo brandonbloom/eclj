@@ -18,12 +18,12 @@
     (apply static-invoke class member args)))
 
 (defn try-lookup [ns sym]
-  (if-let [x (ns-resolve ns sym)]
-    {:origin (if (var? x) :namespace :host) :value x}
-    (try
-      {:origin :host :value (clojure.lang.RT/classForName (name sym))}
-      (catch ClassNotFoundException _
-        nil))))
+  (try
+    (if-let [x (ns-resolve ns sym)]
+      {:origin (if (var? x) :namespace :host) :value x}
+      {:origin :host :value (clojure.lang.RT/classForName (name sym))})
+    (catch ClassNotFoundException e
+      nil)))
 
 ;;TODO: Namespaced keys?
 (def kernel {
