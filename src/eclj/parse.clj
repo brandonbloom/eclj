@@ -1,5 +1,6 @@
 (ns eclj.parse
-  (:require [eclj.common :refer (pure)]))
+  (:require [eclj.common :refer (pure map->Syntax)]
+            [eclj.fn :refer (map->Fn)]))
 
 ;TODO: Is "parse" the right word?
 ;TODO: file/line/column and other metadata
@@ -9,10 +10,6 @@
 
 (defprotocol Expression
   (-parse [expr env]))
-
-(defrecord Syntax [head form env]
-  Expression
-  (-parse [this env] this))
 
 (defn parse [form env]
   (pure (map->Syntax (-parse form env))))
@@ -32,6 +29,9 @@
   {:head :invoke :form form :env env :f f :args (vec args)})
 
 (extend-protocol Expression
+
+  eclj.common.Syntax
+  (-parse [this env] this)
 
   clojure.lang.Symbol
   (-parse [sym env]
@@ -118,7 +118,7 @@
      :params params
      :expr (implicit-do body)}))
 
-(defn parse-fn [[_ & fn-tail]]
+(defn parse-fn [[_ & fn-tail] env]
   ;;TODO: validate methods.
   (let [[name impl] (if (symbol? (first fn-tail))
                       [(first fn-tail) (next fn-tail)]
@@ -127,20 +127,21 @@
                                      (list impl)
                                      impl)]
                   (parse-method sig body))]
-    {:name name
-     :arities (into {} (map (juxt :fixed-arity identity) methods))
-     :max-fixed-arity (apply max (map :fixed-arity methods))}))
+    (map->Fn {:name name :env env
+              :arities (into {} (map (juxt :fixed-arity identity) methods))
+              :max-fixed-arity (apply max (map :fixed-arity methods))})))
 
 (defmethod parse-seq 'fn*
   [form env]
-  (assoc (parse-fn form) :head :fn :form form :env env))
+  {:head :constant :form form :env env
+   :value (parse-fn form env)})
 
 (defmethod parse-seq 'letfn*
   [[_ bindings & body :as form] env]
   {:head :letfn :form form :env env
    :bindings (->> (next bindings)
                   (take-nth 2)
-                  (map (comp (juxt :name identity) parse-fn))
+                  (map (comp (juxt :name identity) #(parse-fn % env)))
                   vec)
    :expr (implicit-do body)})
 

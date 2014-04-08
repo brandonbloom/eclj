@@ -1,6 +1,6 @@
 (ns eclj.fn
   (:refer-clojure :exclude [eval])
-  (:require [eclj.parse :refer (map->Syntax)]
+  (:require [eclj.common :refer (map->Syntax)]
             [eclj.eval :refer (eval)]))
 
 (defn fn-apply [{:keys [env] :as f} arg]

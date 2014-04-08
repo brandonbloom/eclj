@@ -1,6 +1,7 @@
 (ns eclj.interpret
   (:refer-clojure :exclude [eval])
-  (:require [eclj.parse :refer (parse map->Syntax)]
+  (:require [eclj.common :refer (map->Syntax)]
+            [eclj.parse :refer (parse)]
             [eclj.eval :refer (eval eval*)]
             [eclj.fn]))
 
@@ -163,21 +164,9 @@
 
   )
 
-(defn syntax->fn [syntax]
-  (eclj.fn/map->Fn (select-keys syntax [:name :arities :max-fixed-arity :env])))
-
-;;TODO: Can this just be a constant? parse would have to create the Fns.
-;; That would mean letfn doesn't need to do the conversion either.
-(defmethod interpret-syntax* :fn
-  [syntax]
-  (answer (syntax->fn syntax)))
-
 (defmethod interpret-syntax* :letfn
   [{:keys [bindings expr env]}]
-  (let [bindings* (into {} (for [[name f] bindings]
-                             [name (syntax->fn (assoc f :env env))]))
-        env* (update-in env [:locals] merge bindings*)]
-    (thunk expr env*)))
+  (thunk expr (update-in env [:locals] merge bindings)))
 
 (defn exception-handler [catches default finally env]
   (fn handler [x k]
