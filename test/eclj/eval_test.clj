@@ -1,6 +1,7 @@
 (ns eclj.eval-test
-  (:refer-clojure :exclude [eval])
+  (:refer-clojure :exclude [eval case])
   (:require [eclj.eval]
+            [eclj.core :refer (case)]
             [eclj.interpret :refer (interpreter)]))
 
 (defn interpret [x]
@@ -108,21 +109,6 @@
             acc
             (recur (+ acc n) (dec n)))))
 
-;(eval '(case 5
-;         5 :number))
-;
-;(eval '(case 5
-;         5 :number
-;         :default))
-;
-;(eval '(case "str"
-;         5 :number
-;         :default))
-;
-;(eval '(case [1 2 3]
-;         5 :number
-;         [1 2 3] :vector))
-
 (eval '(import 'java.util.Date))
 
 
@@ -195,5 +181,23 @@
 
   ;TODO defprotocol
   ;TODO monitor-enter and monitor-exit
+
+  ;; These are expected to work, but break in a mixed-environment.
+  ;;TODO: Reliable tests for them.
+
+  (eval '(case 5
+           5 :number))
+
+  (eval '(case 5
+           5 :number
+           :default))
+
+  (eval '(case "str"
+           5 :number
+           :default))
+
+  (eval '(case [1 2 3]
+           5 :number
+           [1 2 3] :vector))
 
 )
