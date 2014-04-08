@@ -1,5 +1,5 @@
 (ns eclj.interpret
-  (:require [eclj.parse :refer (parse)]))
+  (:require [eclj.parse :refer (parse map->Syntax)]))
 
 (defn answer [x]
   {:op :answer :value x})
@@ -8,25 +8,29 @@
   (throw (ex-info (str "Unexpected " (pr-str (class x)))
                   {:value x})))
 
-(defmulti interpret* :head)
+(defmulti interpret-syntax* :head)
 
-(defn interpret
-  ([{:keys [env] :as syntax}]
-   (loop [f #(interpret* syntax)]
-     (let [x (f)]
-       (cond
-         (fn? x) (recur x)
-         (= (:op x) :answer) (:value x)
-         :else (let [{:keys [op k]} x]
-                 (if-let [handler (get-in env [:kernel op])]
-                   (recur #(k (handler x)))
-                   (throw (ex-info (pr-str x) x))))))))
-  ([expr env]
-   (interpret (parse expr env))))
+(defn interpret* [x env]
+  (let [{:keys [env] :as syntax} (parse x env)]
+    (loop [f #(interpret-syntax* syntax)]
+      (let [x (f)]
+        (cond
+          (fn? x) (recur x)
+          (= (:op x) :answer) x
+          :else (let [{:keys [op k]} x]
+                  (if-let [handler (get-in env [:kernel op])]
+                    (recur #(k (handler x)))
+                    x)))))))
+
+(defn interpret [x env]
+  (let [y (interpret* x env)]
+    (if (= (:op y) :answer)
+      (:value y)
+      (throw (ex-info (pr-str y) y)))))
 
 (defn thunk
-  ([syntax] #(interpret* syntax))
-  ([expr env] #(interpret* (parse expr env))))
+  ([syntax] #(interpret-syntax* syntax))
+  ([expr env] #(interpret-syntax* (parse expr env))))
 
 (defn raise [action]
   (merge {:k answer} action))
@@ -54,7 +58,7 @@
                   (answer %)
                   (signal {:error :undefined :sym sym}))})))
 
-(defmethod interpret* :constant
+(defmethod interpret-syntax* :constant
   [{:keys [value]}]
   (answer value))
 
@@ -66,11 +70,11 @@
                #(rec (conj dest %) (next src)))))
    (empty coll) coll))
 
-(defmethod interpret* :collection
+(defmethod interpret-syntax* :collection
   [{:keys [coll env]}]
   (interpret-items coll env))
 
-(defmethod interpret* :name
+(defmethod interpret-syntax* :name
   [{:keys [sym env]}]
   (handle (lookup env sym)
           (fn [{:keys [origin value]}]
@@ -79,19 +83,19 @@
               :host (answer value)
               :namespace (raise {:op :deref :ref value})))))
 
-(defmethod interpret* :if
+(defmethod interpret-syntax* :if
   [{:keys [test then else env]}]
   (handle (thunk test env)
           #(thunk (if % then else) env)))
 
-(defmethod interpret* :var
+(defmethod interpret-syntax* :var
   [{:keys [sym env]}]
   (handle (raise {:op :resolve :env env :sym sym})
           (fn [{:keys [origin value]}]
             (assert (= origin :namespace))
             (answer value))))
 
-(defmethod interpret* :do
+(defmethod interpret-syntax* :do
   [{:keys [statements ret env]}]
   (if (seq statements)
     (handle (thunk {:head :do :env env
@@ -100,11 +104,11 @@
             (fn [_] (thunk ret env)))
     (thunk ret env)))
 
-(defmethod interpret* :bind
+(defmethod interpret-syntax* :bind
   [{:keys [name value expr env]}]
   (thunk expr (assoc-in env [:locals name] value)))
 
-(defmethod interpret* :let
+(defmethod interpret-syntax* :let
   [{:keys [bindings expr env]}]
   (if-let [[{:keys [name init]} & bindings*] (seq bindings)]
     (handle (thunk init env)
@@ -146,7 +150,7 @@
                 (propegate handler x answer))))))
 
 (defn fn-apply [{:keys [env] :as f} arg]
-  (interpret {:head :apply :f f :arg arg :env env}))
+  (interpret (map->Syntax {:head :apply :f f :arg arg :env env}) env))
 
 (defrecord Fn [name arities max-fixed-arity env]
 
@@ -218,11 +222,11 @@
 
 ;;TODO: Can this just be a constant? parse would have to create the Fns.
 ;; That would mean letfn doesn't need to do the conversion either.
-(defmethod interpret* :fn
+(defmethod interpret-syntax* :fn
   [syntax]
   (answer (syntax->fn syntax)))
 
-(defmethod interpret* :letfn
+(defmethod interpret-syntax* :letfn
   [{:keys [bindings expr env]}]
   (let [bindings* (into {} (for [[name f] bindings]
                              [name (syntax->fn (assoc f :env env))]))
@@ -250,14 +254,14 @@
                                (fn [_] (k y)))))
             (propegate handler x answer))))))
 
-(defmethod interpret* :try
+(defmethod interpret-syntax* :try
   [{:keys [try catches default finally env]}]
   (handle (interpret-items (mapv :type catches) env)
           (fn [classes] ;TODO: Ensure items are exception classes.
             (let [handler (exception-handler catches default finally env)]
               (handler (thunk try env) answer)))))
 
-(defmethod interpret* :throw
+(defmethod interpret-syntax* :throw
   [{:keys [expr env]}]
   (handle (thunk expr env)
           #(raise {:op :throw :error %})))
@@ -266,11 +270,11 @@
   (handle (interpret-items (reverse args) env)
           #(thunk {:head :apply :f f :arg % :env env})))
 
-(defmethod interpret* :apply
+(defmethod interpret-syntax* :apply
   [{:keys [f arg]}]
   (-apply f arg))
 
-(defmethod interpret* :invoke
+(defmethod interpret-syntax* :invoke
   [{:keys [f args env form]}]
   (if (symbol? f)
     (handle (lookup env f)
@@ -282,13 +286,13 @@
     (handle (thunk f env)
             #(apply-args % args env))))
 
-(defmethod interpret* :expand
+(defmethod interpret-syntax* :expand
   [{:keys [macro form env]}]
   (handle (thunk {:head :apply :env env :f macro
                   :arg (list* form env (next form))})
           #(thunk % env)))
 
-(defmethod interpret* :new
+(defmethod interpret-syntax* :new
   [{:keys [class args env]}]
   (handle (thunk class env)
           (fn [class*] ;TODO: Validate
@@ -296,7 +300,7 @@
               (handle (interpret-items args env)
                       #(raise {:op :new :class class* :args %}))))))
 
-(defmethod interpret* :interop
+(defmethod interpret-syntax* :interop
   [{:keys [target member args env]}]
   (handle (thunk target env)
           (fn [object]
@@ -306,16 +310,16 @@
                              :member member
                              :args %})))))
 
-(defmethod interpret* :declare
+(defmethod interpret-syntax* :declare
   [{:keys [sym]}]
   (raise {:op :declare :sym sym}))
 
-(defmethod interpret* :define
+(defmethod interpret-syntax* :define
   [{:keys [sym expr env]}]
   (handle (thunk expr env)
           #(raise {:op :define :sym sym :value %})))
 
-(defmethod interpret* :assign-var
+(defmethod interpret-syntax* :assign-var
   [{:keys [name expr env]}]
   (handle (lookup env name)
           (fn [{:keys [origin value]}]
@@ -324,7 +328,7 @@
                       #(raise {:op :assign-var :var value :value %}))
               (signal {:error :not-assignable :location value})))))
 
-(defmethod interpret* :assign-field
+(defmethod interpret-syntax* :assign-field
   [{:keys [object field expr env]}]
   (handle (thunk object env)
           (fn [instance]
@@ -332,7 +336,7 @@
                     #(raise {:op :assign-field :object instance
                              :field field :value %})))))
 
-(defmethod interpret* :loop
+(defmethod interpret-syntax* :loop
   [{:keys [bindings expr env]}]
   (let [syms (vec (take-nth 2 bindings))
         inits (vec (take-nth 2 (next bindings)))]
@@ -340,11 +344,11 @@
     (handle (interpret-items inits env)
             #(thunk `((fn ~syms ~expr) ~@%) env))))
 
-(defmethod interpret* :recur
+(defmethod interpret-syntax* :recur
   [{:keys [args env]}]
   (handle (interpret-items args env)
           #(raise {:op :recur :args %})))
 
-(defmethod interpret* :import
+(defmethod interpret-syntax* :import
   [{:keys [sym]}]
   (raise {:op :import :sym sym}))
