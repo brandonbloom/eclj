@@ -6,7 +6,7 @@
 
 (defn interpret [x]
   (binding [eclj.eval/*evaluator* interpreter]
-    (eclj.eval/eval x)))
+    (eclj.core/eval x)))
 
 (defn eval [x]
   (let [ret (interpret x)]

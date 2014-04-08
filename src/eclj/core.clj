@@ -1,8 +1,10 @@
 (ns eclj.core
   (:refer-clojure :exclude [eval case])
-  (:require [eclj.eval]))
+  (:require [eclj.eval]
+            [eclj.env :as env]))
 
-(def eval eclj.eval/eval)
+(defn eval [x]
+  (eclj.eval/eval x (env/ns-env)))
 
 (defmacro case [e & clauses]
   (let [default? (odd? (count clauses))
@@ -10,9 +12,9 @@
         table (into {} (map vec cases))]
     `(let [x# ~e]
        (if-let [[_# e#] (find ~table x#)]
-         (eval e# ~&env)
+         (eclj.eval/eval e# ~&env)
          (if ~default?
-           (eval ~(last clauses) ~&env)
+           (eclj.eval/eval ~(last clauses) ~&env)
            (throw (ex-info {:error :no-matching-clause :value x#})))))))
 
 ;TODO deftype, defprotocol, etc

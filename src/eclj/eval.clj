@@ -1,6 +1,5 @@
 (ns eclj.eval
-  (:refer-clojure :exclude [eval])
-  (:require [eclj.env :as env]))
+  (:refer-clojure :exclude [eval]))
 
 (defprotocol Evaluator
   (eval-with* [this x env])
@@ -16,9 +15,9 @@
 (def ^:dynamic *evaluator*)
 
 (defn eval*
-  ([x] (eval* x (env/ns-env)))
+  ([syntax] (eval* syntax (:env syntax)))
   ([x env] (eval-with* *evaluator* x env)))
 
 (defn eval
-  ([x] (eval x (env/ns-env)))
+  ([syntax] (eval syntax (:env syntax)))
   ([x env] (eval-with *evaluator* x env)))

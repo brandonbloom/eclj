@@ -23,13 +23,13 @@ Woefully incomplete and highly experimental!
 
 The majority of special forms are implemented.
 
-Notably, forms related to classes delegate to clojure.core/eval:
+The notable exceptions are forms related to classes:
 `deftype`, `reify`, `defprotocol`, etc.
 
 
 ## Usage
 
-The only public API is `eclj.eval/eval`; works just like `clojure.core/eval`.
+The only public API is `eclj.core/eval`; works just like `clojure.core/eval`.
 
 
 ## License
