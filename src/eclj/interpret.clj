@@ -1,12 +1,11 @@
 (ns eclj.interpret
-  (:require [eclj.parse :refer (parse map->Syntax)]))
+  (:refer-clojure :exclude [eval])
+  (:require [eclj.parse :refer (parse map->Syntax)]
+            [eclj.eval :refer (eval eval*)]
+            [eclj.fn]))
 
 (defn answer [x]
   {:op :answer :value x})
-
-(defn unexpected [x]
-  (throw (ex-info (str "Unexpected " (pr-str (class x)))
-                  {:value x})))
 
 (defmulti interpret-syntax* :head)
 
@@ -22,15 +21,18 @@
                     (recur #(k (handler x)))
                     x)))))))
 
-(defn interpret [x env]
-  (let [y (interpret* x env)]
-    (if (= (:op y) :answer)
-      (:value y)
-      (throw (ex-info (pr-str y) y)))))
+(defrecord Interpreter [])
+
+(extend Interpreter
+  eclj.eval/Evaluator
+  (assoc eclj.eval/evaluator-mixin :eval-with*
+         (fn [_ x env] (interpret* x env))))
+
+(def interpreter (Interpreter.))
 
 (defn thunk
-  ([syntax] #(interpret-syntax* syntax))
-  ([expr env] #(interpret-syntax* (parse expr env))))
+  ([syntax] #(eval* (map->Syntax syntax)))
+  ([expr env] #(eval* (parse expr env))))
 
 (defn raise [action]
   (merge {:k answer} action))
@@ -119,6 +121,18 @@
 (defprotocol Applicable
   (-apply [this arg]))
 
+(defn recur-handler [f env]
+  (fn handler [x k]
+    (cond
+      (fn? x) #(handler (x) k)
+      (= (:op x) :answer) #(k (:value x))
+      :else (let [{effectk :k :keys [op]} x]
+              (if (= :recur op)
+                (if (= effectk answer)
+                  (thunk {:head :apply :f f :arg (:args x) :env env})
+                  (signal {:error :non-tail-position}))
+                (propegate handler x answer))))))
+
 (extend-protocol Applicable
 
   Object
@@ -133,29 +147,8 @@
   (-apply [this arg]
     (raise {:op :invoke :f this :args arg}))
 
-  ;TODO: Special case symbols & keywords ?
-
-  )
-
-(defn recur-handler [f env]
-  (fn handler [x k]
-    (cond
-      (fn? x) #(handler (x) k)
-      (= (:op x) :answer) #(k (:value x))
-      :else (let [{effectk :k :keys [op]} x]
-              (if (= :recur op)
-                (if (= effectk answer)
-                  (thunk {:head :apply :f f :arg (:args x) :env env})
-                  (signal {:error :non-tail-position}))
-                (propegate handler x answer))))))
-
-(defn fn-apply [{:keys [env] :as f} arg]
-  (interpret (map->Syntax {:head :apply :f f :arg arg :env env}) env))
-
-(defrecord Fn [name arities max-fixed-arity env]
-
-  Applicable
-  (-apply [this args]
+  eclj.fn.Fn
+  (-apply [{:keys [name arities max-fixed-arity env] :as this} args]
     (let [handler (recur-handler this env)
           argcount (count (if (counted? args)
                             args
@@ -166,59 +159,12 @@
           form `(let [~params '~args] ~expr)]
       (handler (thunk form env*) answer)))
 
-  clojure.lang.IFn
-  (applyTo [this args]
-    (fn-apply this args))
-  ;; *cringe*
-  (invoke [this]
-    (fn-apply this []))
-  (invoke [this a]
-    (fn-apply this [a]))
-  (invoke [this a b]
-    (fn-apply this [a b]))
-  (invoke [this a b c]
-    (fn-apply this [a b c]))
-  (invoke [this a b c d]
-    (fn-apply this [a b c d]))
-  (invoke [this a b c d e]
-    (fn-apply this [a b c d e]))
-  (invoke [this a b c d e f]
-    (fn-apply this [a b c d e f]))
-  (invoke [this a b c d e f g]
-    (fn-apply this [a b c d e f g]))
-  (invoke [this a b c d e f g h]
-    (fn-apply this [a b c d e f g h]))
-  (invoke [this a b c d e f g h i]
-    (fn-apply this [a b c d e f g h i]))
-  (invoke [this a b c d e f g h i j]
-    (fn-apply this [a b c d e f g h i j]))
-  (invoke [this a b c d e f g h i j k]
-    (fn-apply this [a b c d e f g h i j k]))
-  (invoke [this a b c d e f g h i j k l]
-    (fn-apply this [a b c d e f g h i j k l]))
-  (invoke [this a b c d e f g h i j k l m]
-    (fn-apply this [a b c d e f g h i j k l m]))
-  (invoke [this a b c d e f g h i j k l m n]
-    (fn-apply this [a b c d e f g h i j k l m n]))
-  (invoke [this a b c d e f g h i j k l m n o]
-    (fn-apply this [a b c d e f g h i j k l m n o]))
-  (invoke [this a b c d e f g h i j k l m n o p]
-    (fn-apply this [a b c d e f g h i j k l m n o p]))
-  (invoke [this a b c d e f g h i j k l m n o p q]
-    (fn-apply this [a b c d e f g h i j k l m n o p q]))
-  (invoke [this a b c d e f g h i j k l m n o p q r]
-    (fn-apply this [a b c d e f g h i j k l m n o p q r]))
-  (invoke [this a b c d e f g h i j k l m n o p q r s]
-    (fn-apply this [a b c d e f g h i j k l m n o p q r s]))
-  (invoke [this a b c d e f g h i j k l m n o p q r s t]
-    (fn-apply this [a b c d e f g h i j k l m n o p q r s t]))
-  (invoke [this a b c d e f g h i j k l m n o p q r s t rest]
-    (fn-apply this (concat [a b c d e f g h i j k l m n o p q r s t] rest)))
+  ;TODO: Special case symbols & keywords ?
 
   )
 
 (defn syntax->fn [syntax]
-  (map->Fn (select-keys syntax [:name :arities :max-fixed-arity :env])))
+  (eclj.fn/map->Fn (select-keys syntax [:name :arities :max-fixed-arity :env])))
 
 ;;TODO: Can this just be a constant? parse would have to create the Fns.
 ;; That would mean letfn doesn't need to do the conversion either.
