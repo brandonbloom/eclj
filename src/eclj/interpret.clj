@@ -1,15 +1,8 @@
 (ns eclj.interpret
   (:require [eclj.parse :refer (parse)]))
 
-;; Wraps all interpreter intermediate values.
-(defrecord Answer [value])
-(defrecord Effect [op k])
-
-(defn answer? [x]
-  (instance? Answer x))
-
-(defn effect? [x]
-  (instance? Effect x))
+(defn answer [x]
+  {:op :answer :value x})
 
 (defn unexpected [x]
   (throw (ex-info (str "Unexpected " (pr-str (class x)))
@@ -22,13 +15,12 @@
    (loop [f #(interpret* syntax)]
      (let [x (f)]
        (cond
-         (ifn? x) (recur x)
-         (answer? x) (:value x)
-         (effect? x) (let [{:keys [op k]} x]
-                       (if-let [handler (get-in env [:kernel op])]
-                         (recur #(k (handler x)))
-                         (throw (ex-info (pr-str x) x))))
-         :else (unexpected x)))))
+         (fn? x) (recur x)
+         (= (:op x) :answer) (:value x)
+         :else (let [{:keys [op k]} x]
+                 (if-let [handler (get-in env [:kernel op])]
+                   (recur #(k (handler x)))
+                   (throw (ex-info (pr-str x) x))))))))
   ([expr env]
    (interpret (parse expr env))))
 
@@ -37,7 +29,7 @@
   ([expr env] #(interpret* (parse expr env))))
 
 (defn raise [action]
-  (map->Effect (merge {:k ->Answer} action)))
+  (merge {:k answer} action))
 
 ;;TODO: Implement restarts, etc.
 (defn signal [condition]
@@ -48,29 +40,28 @@
 
 (defn handle [x k]
   (cond
-    (answer? x) #(k (:value x))
-    (effect? x) (propegate handle x k)
-    (ifn? x) #(handle (x) k)
-    :else (unexpected x)))
+    (fn? x) #(handle (x) k)
+    (= (:op x) :answer) #(k (:value x))
+    :else (propegate handle x k)))
 
 (defn lookup [{:keys [locals] :as env} sym]
   (if-let [[_ value] (find locals sym)]
-    (Answer. {:origin :locals :value value})
+    (answer {:origin :locals :value value})
     (raise {:op :resolve
             :env env
             :sym sym
             :k #(if %
-                  (Answer. %)
+                  (answer %)
                   (signal {:error :undefined :sym sym}))})))
 
 (defmethod interpret* :constant
   [{:keys [value]}]
-  (Answer. value))
+  (answer value))
 
 (defn interpret-items [coll env]
   ((fn rec [dest src]
      (if (empty? src)
-       (Answer. dest)
+       (answer dest)
        (handle (thunk (first src) env)
                #(rec (conj dest %) (next src)))))
    (empty coll) coll))
@@ -84,8 +75,8 @@
   (handle (lookup env sym)
           (fn [{:keys [origin value]}]
             (case origin
-              :locals (Answer. value)
-              :host (Answer. value)
+              :locals (answer value)
+              :host (answer value)
               :namespace (raise {:op :deref :ref value})))))
 
 (defmethod interpret* :if
@@ -98,7 +89,7 @@
   (handle (raise {:op :resolve :env env :sym sym})
           (fn [{:keys [origin value]}]
             (assert (= origin :namespace))
-            (Answer. value))))
+            (answer value))))
 
 (defmethod interpret* :do
   [{:keys [statements ret env]}]
@@ -145,15 +136,14 @@
 (defn recur-handler [f env]
   (fn handler [x k]
     (cond
-      (answer? x) #(k (:value x))
-      (effect? x) (let [{effectk :k :keys [op]} x]
-                    (if (= :recur op)
-                      (if (= effectk ->Answer)
-                        (thunk {:head :apply :f f :arg (:args x) :env env})
-                        (signal {:error :non-tail-position}))
-                      (propegate handler x ->Answer)))
-      (ifn? x) #(handler (x) k)
-      :else (unexpected x))))
+      (fn? x) #(handler (x) k)
+      (= (:op x) :answer) #(k (:value x))
+      :else (let [{effectk :k :keys [op]} x]
+              (if (= :recur op)
+                (if (= effectk answer)
+                  (thunk {:head :apply :f f :arg (:args x) :env env})
+                  (signal {:error :non-tail-position}))
+                (propegate handler x answer))))))
 
 (defn fn-apply [{:keys [env] :as f} arg]
   (interpret {:head :apply :f f :arg arg :env env}))
@@ -170,7 +160,7 @@
           env* (if name (assoc-in env [:locals name] this) env)
           ;;TODO: Don't generate form, destructure to env & use AST directly.
           form `(let [~params '~args] ~expr)]
-      (handler (thunk form env*) ->Answer)))
+      (handler (thunk form env*) answer)))
 
   clojure.lang.IFn
   (applyTo [this args]
@@ -230,7 +220,7 @@
 ;; That would mean letfn doesn't need to do the conversion either.
 (defmethod interpret* :fn
   [syntax]
-  (Answer. (syntax->fn syntax)))
+  (answer (syntax->fn syntax)))
 
 (defmethod interpret* :letfn
   [{:keys [bindings expr env]}]
@@ -242,9 +232,10 @@
 (defn exception-handler [catches default finally env]
   (fn handler [x k]
     (cond
-      (answer? x) #(handle (thunk finally env)
-                           (fn [_] (fn [] (k (:value x)))))
-      (effect? x)
+      (fn? x) #(handler (x) k)
+      (= (:op x) :answer) #(handle (thunk finally env)
+                                   (fn [_] (fn [] (k (:value x)))))
+      :else
         (let [error (:error x)
               catch (some (fn [{:keys [class sym expr] :as catch}]
                             (when (and (= (:op x) :throw)
@@ -257,16 +248,14 @@
                      (fn [y]
                        (handle (thunk finally env)
                                (fn [_] (k y)))))
-            (propegate handler x ->Answer)))
-      (ifn? x) #(handler (x) k)
-      :else (unexpected x))))
+            (propegate handler x answer))))))
 
 (defmethod interpret* :try
   [{:keys [try catches default finally env]}]
   (handle (interpret-items (mapv :type catches) env)
           (fn [classes] ;TODO: Ensure items are exception classes.
             (let [handler (exception-handler catches default finally env)]
-              (handler (thunk try env) ->Answer)))))
+              (handler (thunk try env) answer)))))
 
 (defmethod interpret* :throw
   [{:keys [expr env]}]
