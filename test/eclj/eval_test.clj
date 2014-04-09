@@ -194,7 +194,6 @@
   (eval 'foo.Bar)
   (eval '(import 'foo.Bar))
 
-  ;TODO defprotocol
   ;TODO monitor-enter and monitor-exit
 
 )

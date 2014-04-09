@@ -242,11 +242,6 @@
   {:head :import :form form :env env :sym sym})
 
 
-;TODO (defmethod parse-seq 'clojure.core/case
-;TODO (defmethod parse-seq 'deftype* [form env]
-;TODO (defmethod parse-seq 'reify* [form env]
-
-
 (comment
 
   (require 'eclj.env)
