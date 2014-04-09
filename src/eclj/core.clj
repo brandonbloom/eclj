@@ -1,7 +1,6 @@
 (ns eclj.core
   (:refer-clojure :exclude [eval case deftype defrecord defprotocol])
-  (:require [eclj.common :refer (map->Syntax)]
-            [eclj.eval]
+  (:require [eclj.eval]
             [eclj.env :as env]
             [eclj.interpret :refer (interpreter)]))
 

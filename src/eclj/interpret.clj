@@ -42,14 +42,19 @@
 (defn signal [condition]
   (raise (merge {:op :condition} condition)))
 
-(defn propegate [handler {:keys [k] :as effect} nextk]
-  (assoc effect :k #(handler (k %) nextk)))
+(defn handle-with [handler x k]
+  (let [f (fn [x k] (handle-with handler x k))]
+    (if (fn? x)
+      #(f (x) k)
+      (or (handler x k)
+          (assoc x :k #(f ((:k x) %) k))))))
+
+(defn default-handler [x k]
+  (when (= (:op x) :answer)
+    #(k (:value x))))
 
 (defn handle [x k]
-  (cond
-    (fn? x) #(handle (x) k)
-    (= (:op x) :answer) #(k (:value x))
-    :else (propegate handle x k)))
+  (handle-with default-handler x k))
 
 (defn lookup [{:keys [locals] :as env} sym]
   (if-let [[_ value] (find locals sym)]
@@ -123,16 +128,14 @@
   (-apply [this arg]))
 
 (defn recur-handler [f env]
-  (fn handler [x k]
-    (cond
-      (fn? x) #(handler (x) k)
-      (= (:op x) :answer) #(k (:value x))
-      :else (let [{effectk :k :keys [op]} x]
-              (if (= :recur op)
-                (if (= effectk answer)
-                  (thunk {:head :apply :f f :arg (:args x) :env env})
-                  (signal {:error :non-tail-position}))
-                (propegate handler x answer))))))
+  (fn [x k]
+    (let [{effectk :k :keys [op]} x]
+      (case op
+        :answer #(k (:value x))
+        :recur (if (= effectk answer)
+                 (thunk {:head :apply :f f :arg (:args x) :env env})
+                 (signal {:error :non-tail-position}))
+        nil))))
 
 (extend-protocol Applicable
 
@@ -150,15 +153,15 @@
 
   eclj.fn.Fn
   (-apply [{:keys [name arities max-fixed-arity env] :as this} args]
-    (let [handler (recur-handler this env)
-          argcount (count (if (counted? args)
+    (let [argcount (count (if (counted? args)
                             args
                             (take max-fixed-arity args)))
           {:keys [params expr]} (arities (max argcount max-fixed-arity))
           env* (if name (assoc-in env [:locals name] this) env)
           ;;TODO: Don't generate form, destructure to env & use AST directly.
           form `(let [~params '~args] ~expr)]
-      (handler (thunk form env*) answer)))
+      (handle-with (recur-handler this env)
+                   (thunk form env*) answer)))
 
   ;TODO: Special case symbols & keywords ?
 
@@ -170,31 +173,29 @@
 
 (defn exception-handler [catches default finally env]
   (fn handler [x k]
-    (cond
-      (fn? x) #(handler (x) k)
-      (= (:op x) :answer) #(handle (thunk finally env)
-                                   (fn [_] (fn [] (k (:value x)))))
-      :else
-        (let [error (:error x)
-              catch (some (fn [{:keys [class sym expr] :as catch}]
-                            (when (and (= (:op x) :throw)
-                                       (instance? class error))
-                              catch))
-                            catches)]
-          (if-let [{:keys [name expr]} (or catch default)]
-            #(handle (thunk {:head :bind :env env
-                             :name name :value error :expr expr})
-                     (fn [y]
-                       (handle (thunk finally env)
-                               (fn [_] (k y)))))
-            (propegate handler x answer))))))
+    (if (= (:op x) :answer)
+      #(handle (thunk finally env)
+               (fn [_] (fn [] (k (:value x)))))
+      (let [error (:error x)
+            catch (some (fn [{:keys [class sym expr] :as catch}]
+                          (when (and (= (:op x) :throw)
+                                     (instance? class error))
+                            catch))
+                          catches)]
+        (when-let [{:keys [name expr]} (or catch default)]
+          #(handle (thunk {:head :bind :env env
+                           :name name :value error :expr expr})
+                   (fn [y]
+                     (handle (thunk finally env)
+                             (fn [_] (k y))))))))))
 
 (defmethod interpret-syntax* :try
   [{:keys [try catches default finally env]}]
   (handle (interpret-items (mapv :type catches) env)
           (fn [classes] ;TODO: Ensure items are exception classes.
-            (let [handler (exception-handler catches default finally env)]
-              (handler (thunk try env) answer)))))
+            (let [catches* (map #(assoc %1 :class %2) catches classes)]
+              (handle-with (exception-handler catches* default finally env)
+                           (thunk try env) answer)))))
 
 (defmethod interpret-syntax* :throw
   [{:keys [expr env]}]
