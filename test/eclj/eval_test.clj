@@ -185,8 +185,9 @@
 
   (eval '(defprotocol P))
   (eval '(defprotocol P (f [this])))
-  (eval '(extend-protocol P Foo (f [this] :p)))
+  (eval '(extend-protocol P Foo (f [this] :foo)))
   (eval '(f (Foo. 2)))
+  (eval '(f (reify P (f [this] :reified))))
 
   (eval '(var Class))
 
