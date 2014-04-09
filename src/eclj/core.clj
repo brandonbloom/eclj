@@ -20,11 +20,7 @@
            (eclj.eval/eval ~(last clauses) ~&env)
            (throw (ex-info {:error :no-matching-clause :value x#})))))))
 
-(defmacro deftype [& args]
-  `(clojure.core/eval '~(macroexpand-1 &form)))
-
-(defmacro defrecord [& args]
-  `(clojure.core/eval '~(macroexpand-1 &form)))
-
-(defmacro defprotocol [& args]
-  `(clojure.core/eval '~(macroexpand-1 &form)))
+;TODO: Implement deftype and friends with support for eclj functionality.
+(defmacro deftype [& args] `(clojure.core/eval '~&form))
+(defmacro defrecord [& args] `(clojure.core/eval '~&form))
+(defmacro defprotocol [& args] `(clojure.core/eval '~&form))
