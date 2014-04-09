@@ -1,6 +1,7 @@
 (ns eclj.core
-  (:refer-clojure :exclude [eval case])
-  (:require [eclj.eval]
+  (:refer-clojure :exclude [eval case deftype defrecord defprotocol])
+  (:require [eclj.common :refer (map->Syntax)]
+            [eclj.eval]
             [eclj.env :as env]
             [eclj.interpret :refer (interpreter)]))
 
@@ -19,4 +20,11 @@
            (eclj.eval/eval ~(last clauses) ~&env)
            (throw (ex-info {:error :no-matching-clause :value x#})))))))
 
-;TODO deftype, defprotocol, etc
+(defmacro deftype [& args]
+  `(clojure.core/eval '~(macroexpand-1 &form)))
+
+(defmacro defrecord [& args]
+  `(clojure.core/eval '~(macroexpand-1 &form)))
+
+(defmacro defprotocol [& args]
+  `(clojure.core/eval '~(macroexpand-1 &form)))

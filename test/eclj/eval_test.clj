@@ -178,12 +178,15 @@
   (eval '(deftype Foo [bar]))
   (eval '(Foo. 1))
   (eval '(defrecord Point [x y]))
+  (eval '(Point. 5 10))
 
   (eval (list 'set! (list '.__methodImplCache (fn [])) ; explicitly a host fn.
            (list 'clojure.lang.MethodImplCache. nil nil)))
 
   (eval '(defprotocol P))
   (eval '(defprotocol P (f [this])))
+  (eval '(extend-protocol P Foo (f [this] :p)))
+  (eval '(f (Foo. 2)))
 
   (eval '(var Class))
 

@@ -17,7 +17,10 @@
   (fn [& args]
     (apply static-invoke class member args)))
 
-(def patches {#'clojure.core/case 'eclj.core/case})
+(def patches {#'clojure.core/case 'eclj.core/case
+              #'clojure.core/deftype 'eclj.core/deftype
+              #'clojure.core/defrecord 'eclj.core/defrecord
+              #'clojure.core/defprotocol 'eclj.core/defprotocol})
 
 (defn try-lookup [ns sym]
   (try

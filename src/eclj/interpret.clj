@@ -221,6 +221,7 @@
     (handle (thunk f env)
             #(apply-args % args env))))
 
+;;TODO: Replace expand special with Applicable Macro type?
 (defmethod interpret-syntax* :expand
   [{:keys [macro form env]}]
   (handle (thunk {:head :apply :env env :f macro

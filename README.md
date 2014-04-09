@@ -21,10 +21,11 @@ abstract interpreter and extensible JIT compiler. See [Lancet][2].
 
 Woefully incomplete and highly experimental!
 
-The majority of special forms are implemented.
-
-The notable exceptions are forms related to classes:
-`deftype`, `reify`, `defprotocol`, etc.
+Most of the special forms are implemented, but forms related to types cheat a
+bit. Specifically, `deftype`, `defprotocol`, and `defrecord` delegate to the
+Clojure compiler. This is enables interop, but prevents extended functionality
+in method bodies; that restriction will be lifted eventually. The only special
+form not yet functioning is `reify`.
 
 
 ## Usage
