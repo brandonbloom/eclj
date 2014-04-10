@@ -86,8 +86,7 @@
 (expect fn? '(fn ([] 0) ([x] 1) ([x y] 2)))
 (expect fn? '(fn ([] 0) ([x] 1) ([x y] 2) ([x y & zs] :n)))
 
-;;TODO: Fix clj->eclj interop
-; (pass-fail (= 5 ((eclj.core/eval '(fn [x] x)) 5)))
+(pass-fail (= 5 ((eclj.core/eval '(fn [x] x)) 5)))
 
 (expect (complement bound?) '(def declared))
 (expect bound? '(def defined 1))

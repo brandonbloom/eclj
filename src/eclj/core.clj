@@ -9,9 +9,11 @@
   eval case deftype defrecord defprotocol
 })
 
+;;XXX This ties the recursive knot for eclj.fn/fn-apply
+(alter-var-root #'eclj.eval/*evaluator* (constantly interpreter))
+
 (defn eval [x]
-  (binding [eclj.eval/*evaluator* interpreter]
-    (eclj.eval/eval x (env/ns-env))))
+  (eclj.eval/eval x (env/ns-env)))
 
 (defmacro case [e & clauses]
   (let [default? (odd? (count clauses))
