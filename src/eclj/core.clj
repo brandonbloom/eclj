@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [eval case deftype defrecord defprotocol])
   (:require [eclj.eval]
             [eclj.env :as env]
-            [eclj.interpret :refer (interpreter)]))
+            [eclj.interpret.cps :refer (interpreter)]))
 
 (defn eval [x]
   (binding [eclj.eval/*evaluator* interpreter]

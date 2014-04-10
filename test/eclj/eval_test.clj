@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [eval])
   (:require [eclj.eval]
             [eclj.core]
-            [eclj.interpret :refer (interpreter)]))
+            [eclj.interpret.cps :refer (interpreter)]))
 
 (defn eval [x]
   (let [ret (eclj.core/eval x)]

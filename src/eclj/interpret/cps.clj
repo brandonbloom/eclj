@@ -1,4 +1,4 @@
-(ns eclj.interpret
+(ns eclj.interpret.cps
   (:require [eclj.common :refer (map->Syntax)]
             [eclj.parse :refer (parse)]
             [eclj.eval :refer (eval*)]
