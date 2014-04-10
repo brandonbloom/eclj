@@ -6,8 +6,9 @@
   (eval-with [this x env]))
 
 (defn ->result [effect]
-  (if (= (:op effect) :answer)
-    (:value effect)
+  (case (:op effect)
+    :answer (:value effect)
+    :throw (throw (:error effect))
     (throw (ex-info (pr-str effect) effect))))
 
 (def evaluator-mixin
