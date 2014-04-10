@@ -4,162 +4,188 @@
             [eclj.core]
             [eclj.interpret.cps :refer (interpreter)]))
 
-(defn eval [x]
+;;TODO: Better results reporting
+(defn pass [] (print "."))
+(defn fail [] (print "X"))
+(defn pass-fail [x] (if x (pass) (fail)))
+
+(defn =clj [x]
   (let [ret (eclj.core/eval x)]
     (assert (= (clojure.core/eval x) ret)
             (str (pr-str x) " evaluated to " (pr-str ret)))
-    (print ".") ;TODO: Better results reporting
+    (pass)
     ret))
 
-(eval 5)
-(eval true)
+(defmacro expect [pred expr]
+  `(let [x# (eclj.core/eval ~expr)]
+     (pass-fail (~pred x#))
+     x#))
 
-(eval 'inc)
-(eval #'inc)
-(eval '#'inc)
-(eval '(identity inc))
-(eval 'Boolean)
+(defmacro throws [pred expr]
+  `(try
+     (let [x# (eclj.core/eval ~expr)]
+       (fail)
+       x#)
+     (catch Throwable e#
+       (pass-fail (~pred (ex-data e#)))
+       e#)))
 
-(eval ())
+(=clj 5)
+(=clj true)
+(=clj "str")
 
-(eval '(if true 5 10))
-(eval '(if false 5 10))
-(eval '(if true 5))
-(eval '(if false 5))
+(=clj 'inc)
+(=clj #'inc)
+(=clj '#'inc)
+(=clj '(identity inc))
+(=clj 'Boolean)
+(throws #(= (:error %) :undefined) 'foo)
 
-(eval '(- 10 3))
-(eval '((identity -) 10 3))
-(eval '(+ (inc 5) (inc 10)))
-(eval '(#'* (inc 4) 2))
-(eval '(#'identity "hello"))
+(=clj ())
 
-(eval '[1 "two" inc (+ 5 10)])
-(eval '{1 "two" inc (+ 5 10)})
-(eval '#{1"two" inc (+ 5 10)})
+(=clj '(if true 5 10))
+(=clj '(if false 5 10))
+(=clj '(if true 5))
+(=clj '(if false 5))
+(throws #(= (:error %) :undefined) '(if xx 5))
 
-(eval '(do))
-(eval '(do :x))
-(eval '(do :x :y))
-(eval ''(with-out-str (do (prn :x) (prn :y))))
-(eval '(with-out-str (do (prn :x) (prn :y) (prn :z))))
+(=clj '(- 10 3))
+(=clj '((identity -) 10 3))
+(=clj '(+ (inc 5) (inc 10)))
+(=clj '(#'* (inc 4) 2))
+(=clj '(#'identity "hello"))
 
-(eval '(-> 8 inc (- 3)))
+(=clj '[1 "two" inc (+ 5 10)])
+(=clj '{1 "two" inc (+ 5 10)})
+(=clj '#{1"two" inc (+ 5 10)})
 
-(eval '(let [] 1))
-(eval '(let [x 2] x))
-(eval '(let [x 2 y 4] (+ x y)))
-(eval '(let [x 2 y 4 z 6] (+ x y z)))
+(=clj '(do))
+(=clj '(do :x))
+(=clj '(do :x :y))
+(=clj ''(with-out-str (do (prn :x) (prn :y))))
+(=clj '(with-out-str (do (prn :x) (prn :y) (prn :z))))
 
-(eval ''x)
+(=clj '(-> 8 inc (- 3)))
 
-(eval '((fn [] 1)))
-(eval '((fn [x] x) 5))
-(eval '(apply (fn [& args] (apply + args)) (range 1000)))
+(=clj '(let [] 1))
+(=clj '(let [x 2] x))
+(=clj '(let [x 2 y 4] (+ x y)))
+(=clj '(let [x 2 y 4 z 6] (+ x y z)))
 
-(eval '(try 1))
-(eval '(try 1 (catch Throwable e 2)))
-(eval '(with-out-str (try 1 (finally (prn 2)))))
+(=clj ''x)
 
-(eval '(new String "abc"))
-(eval '(String. "xyz"))
+(=clj '((fn [] 1)))
+(=clj '((fn [x] x) 5))
+(=clj '(apply (fn [& args] (apply + args)) (range 1000)))
 
-(eval '(. "abc" toUpperCase))
-(eval '(. "abc" (toUpperCase)))
-(eval '(.toUpperCase "abc"))
-(eval '(. "abc" startsWith "x"))
-(eval '(. "abc" (startsWith "x")))
-(eval '(.startsWith "abc" "x"))
+(expect fn? '(fn []))
+(expect fn? '(fn [x] x))
+(expect fn? '(fn ([x] x)))
+(expect fn? '(fn f [x] x))
+(expect fn? '(fn f ([x] x)))
+(expect fn? '(fn ([] 0) ([x] 1) ([x y] 2)))
+(expect fn? '(fn ([] 0) ([x] 1) ([x y] 2) ([x y & zs] :n)))
 
-(eval 'Byte)
-(eval '(. Byte TYPE))
-(eval '(. String valueOf true))
-(eval '(. String (valueOf true)))
+;;TODO: Fix clj->eclj interop
+; (pass-fail (= 5 ((eclj.core/eval '(fn [x] x)) 5)))
 
-(eval 'Byte/TYPE)
-(eval '(identity Byte/TYPE))
-(eval '(String/valueOf true))
+(expect (complement bound?) '(def declared))
+(expect bound? '(def defined 1))
+(expect #(= @% 3) '(do (def redefined 2) (def redefined 3)))
+(expect #(= @% 4) '(def foo "bar" 4))
+(expect #(= (-> % meta :doc) "bar") '(def foo "bar" 4))
 
-(eval '(do (def ^:dynamic *foo* 1)
+(=clj '(try 1))
+(=clj '(try 1 (catch Throwable e 2)))
+(=clj '(with-out-str (try 1 (finally (prn 2)))))
+(throws (constantly true) '(throw (ex-info "err" {})))
+(throws (constantly true) '(try (throw (ex-info "err" {}))))
+(throws (constantly true)
+        '(try 1 (throw (ex-info "err" {})) 2
+              (catch IllegalArgumentException e 2)))
+(pass-fail (= 3 (eclj.core/eval '(try (throw (ex-info "err" {}))
+                                      (catch :default e 3)))))
+(expect #(instance? Exception %)
+        '(try (throw (ex-info "err" {}))
+              (catch :default e e)))
+(expect #(= % "2")
+  (with-out-str
+    (eclj.core/eval '(try (throw (ex-info "err" {}))
+                          (catch :default e e)
+                          (finally (print 2))))))
+(throws #(= (:error %) :non-tail-position) '(loop [] (inc (recur))))
+
+(=clj '(import [java.util Date Currency]))
+(throws (constantly true) '(var Class))
+
+(=clj '(new String "abc"))
+(=clj '(String. "xyz"))
+
+(=clj '(. "abc" toUpperCase))
+(=clj '(. "abc" (toUpperCase)))
+(=clj '(.toUpperCase "abc"))
+(=clj '(. "abc" startsWith "x"))
+(=clj '(. "abc" (startsWith "x")))
+(=clj '(.startsWith "abc" "x"))
+
+(=clj 'Byte)
+(=clj '(. Byte TYPE))
+(=clj '(. String valueOf true))
+(=clj '(. String (valueOf true)))
+
+(=clj 'Byte/TYPE)
+(=clj '(identity Byte/TYPE))
+(=clj '(String/valueOf true))
+
+(=clj '(do (def ^:dynamic *foo* 1)
            (binding [*foo* 2]
              (set! *foo* 3)
              *foo*)))
 
-(eval '((fn factorial [x]
+(=clj '((fn factorial [x]
           (if (<= x 1)
             1
             (* x (factorial (- x 1)))))
         5))
 
-(eval '(letfn [(even? [x] (or (zero? x) (odd? (dec x))))
+(=clj '(letfn [(even? [x] (or (zero? x) (odd? (dec x))))
                (odd? [x] (and (not (zero? x)) (even? (dec x))))]
          ((juxt even? odd?) 11)))
 
-(eval '((fn [acc n]
+(=clj '((fn [acc n]
           (if (zero? n)
             acc
             (recur (+ acc n) (dec n))))
         0 10))
 
-(eval '(loop [acc 0, n 10]
+(=clj '(loop [acc 0, n 10]
          (if (zero? n)
             acc
             (recur (+ acc n) (dec n)))))
 
-(eval '(import 'java.util.Date))
+(=clj '(import 'java.util.Date))
 
-(eval '(case 5
+(=clj '(case 5
          5 :number))
 
-(eval '(case 5
+(=clj '(case 5
          5 :number
          :default))
 
-(eval '(case "str"
+(=clj '(case "str"
          5 :number
          :default))
 
-(eval '(case [1 2 3]
+(=clj '(case [1 2 3]
          5 :number
          [1 2 3] :vector))
 
+(throws #(= (:error %) :no-matching-clause)
+        '(case "str" 5 :number))
 
 (comment
 
-  ;;TODO: Create tests for these expected failures
-
-  (def eval eclj.core/eval)
-
-  (eval '(if xx 5))
-  (eval 'foo)
-
-  (eval '(fn []))
-  (eval '(fn [x] x))
-  (eval '(fn ([x] x)))
-  (eval '(fn f [x] x))
-  (eval '(fn f ([x] x)))
-  (eval '(fn ([] 0) ([x] 1) ([x y] 2)))
-  (eval '(fn ([] 0) ([x] 1) ([x y] 2) ([x y & zs] :n)))
-
-  ((eval '(fn [x] x)) 5)
-
-  (eval '(def declared))
-  (eval '(def defined 1))
-  (eval '(do (def redefined 2) (def redefined 3)))
-  (eval '(def foo "bar" 4))
-  [declared defined redefined foo (-> #'foo meta :doc)]
-
-  (eval '(throw (ex-info "err" {})))
-  (eval '(try (throw (ex-info "err" {}))))
-  (eval '(try 1 (throw (ex-info "err" {})) 2
-              (catch IllegalArgumentException e 2)))
-  (eval '(try (throw (ex-info "err" {})) (catch :default e 3)))
-  (eval '(try (throw (ex-info "err" {})) (catch :default e e)))
-  (eval '(try (throw (ex-info "err" {}))
-              (catch :default e e)
-              (finally (prn 2))))
-
-  (eval '(Apply. inc 5))
-  (eval '(.valueOf String true))
+  (eval '(.valueOf String true)) ;XXX Not expected to work
 
   (time
     (dotimes [i 200]
@@ -168,12 +194,6 @@
                   1
                   (* x (factorial (- x 1)))))
               20))))
-
-  (eval '(loop [] (inc (recur))))
-  (eval '(import [java.util Date Currency]))
-
-  (eval '(case "str"
-           5 :number))
 
   (eval '(deftype Foo [bar]))
   (eval '(Foo. 1))
@@ -188,8 +208,6 @@
   (eval '(extend-protocol P Foo (f [this] :foo)))
   (eval '(f (Foo. 2)))
   (eval '(f (reify P (f [this] :reified))))
-
-  (eval '(var Class))
 
   (eval 'foo.Bar)
   (eval '(import 'foo.Bar))

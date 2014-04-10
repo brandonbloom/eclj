@@ -3,10 +3,12 @@
   (:require [eclj.common :refer (map->Syntax)]
             [eclj.eval :refer (eval)]))
 
+;;TODO: Switch to elcj.core/eval & fix circular dependency
 (defn fn-apply [{:keys [env] :as f} arg]
   (eval (map->Syntax {:head :apply :f f :arg arg :env env}) env))
 
 (defrecord Fn [name arities max-fixed-arity env]
+  clojure.lang.Fn
   clojure.lang.IFn
   (applyTo [this args]
     (fn-apply this args))

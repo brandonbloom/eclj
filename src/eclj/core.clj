@@ -22,7 +22,8 @@
          (eclj.eval/eval e# ~&env)
          (if ~default?
            (eclj.eval/eval ~(last clauses) ~&env)
-           (throw (ex-info {:error :no-matching-clause :value x#})))))))
+           (throw (ex-info (str "No clause matching " (pr-str x#))
+                           {:error :no-matching-clause :value x#})))))))
 
 ;TODO: Implement deftype and friends with support for eclj functionality.
 (defmacro deftype [& args] `(clojure.core/eval '~&form))
