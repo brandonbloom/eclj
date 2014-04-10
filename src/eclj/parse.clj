@@ -197,9 +197,10 @@
                          1 [(first body)]
                          2 [(first body) nil (second body)]
                          3 body)
-        doc (or doc (-> sym meta :doc))]
+        doc (or doc (-> sym meta :doc))
+        sym (vary-meta sym assoc :doc doc)]
     (merge
-      {:sym sym :doc doc :form form :env env}
+      {:sym sym :form form :env env}
       (if (> (count body) 1)
         {:head :define :expr expr}
         {:head :declare}))))
