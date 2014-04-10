@@ -1,8 +1,7 @@
 (ns eclj.interpret
-  (:refer-clojure :exclude [eval])
   (:require [eclj.common :refer (map->Syntax)]
             [eclj.parse :refer (parse)]
-            [eclj.eval :refer (eval eval*)]
+            [eclj.eval :refer (eval*)]
             [eclj.fn]))
 
 (defn answer [x]
@@ -42,19 +41,19 @@
 (defn signal [condition]
   (raise (merge {:op :condition} condition)))
 
-(defn handle-with [handler x k]
-  (let [f (fn [x k] (handle-with handler x k))]
-    (if (fn? x)
-      #(f (x) k)
-      (or (handler x k)
-          (assoc x :k #(f ((:k x) %) k))))))
+(defn handle-with [handler effect k]
+  (let [f (partial handle-with handler)]
+    (if (fn? effect)
+      #(f (effect) k)
+      (or (handler effect k)
+          (assoc effect :k #(f ((:k effect) %) k))))))
 
-(defn default-handler [x k]
-  (when (= (:op x) :answer)
-    #(k (:value x))))
+(defn default-handler [effect k]
+  (when (= (:op effect) :answer)
+    #(k (:value effect))))
 
-(defn handle [x k]
-  (handle-with default-handler x k))
+(defn handle [effect k]
+  (handle-with default-handler effect k))
 
 (defn lookup [{:keys [locals] :as env} sym]
   (if-let [[_ value] (find locals sym)]
@@ -128,14 +127,13 @@
   (-apply [this arg]))
 
 (defn recur-handler [f env]
-  (fn [x k]
-    (let [{effectk :k :keys [op]} x]
-      (case op
-        :answer #(k (:value x))
-        :recur (if (= effectk answer)
-                 (thunk {:head :apply :f f :arg (:args x) :env env})
-                 (signal {:error :non-tail-position}))
-        nil))))
+  (fn [effect k]
+    (case (:op effect)
+      :answer #(k (:value effect))
+      :recur (if (= (:k effect) answer)
+               (thunk {:head :apply :f f :arg (:args effect) :env env})
+               (signal {:error :non-tail-position}))
+      nil)))
 
 (extend-protocol Applicable
 
@@ -172,13 +170,13 @@
   (thunk expr (update-in env [:locals] merge bindings)))
 
 (defn exception-handler [catches default finally env]
-  (fn handler [x k]
-    (if (= (:op x) :answer)
+  (fn handler [{:keys [op] :as effect} k]
+    (if (= op :answer)
       #(handle (thunk finally env)
-               (fn [_] (fn [] (k (:value x)))))
-      (let [error (:error x)
+               (fn [_] (fn [] (k (:value effect)))))
+      (let [error (:error effect)
             catch (some (fn [{:keys [class sym expr] :as catch}]
-                          (when (and (= (:op x) :throw)
+                          (when (and (= op :throw)
                                      (instance? class error))
                             catch))
                           catches)]

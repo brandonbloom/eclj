@@ -5,12 +5,14 @@
   (eval-with* [this x env])
   (eval-with [this x env]))
 
+(defn ->result [effect]
+  (if (= (:op effect) :answer)
+    (:value effect)
+    (throw (ex-info (pr-str effect) effect))))
+
 (def evaluator-mixin
   {:eval-with (fn [evaluator x env]
-                (let [y (eval-with* evaluator x env)]
-                  (if (= (:op y) :answer)
-                    (:value y)
-                    (throw (ex-info (pr-str y) y)))))})
+                (->result (eval-with* evaluator x env)))})
 
 (def ^:dynamic *evaluator*)
 
