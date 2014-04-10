@@ -1,8 +1,13 @@
 (ns eclj.core
-  (:refer-clojure :exclude [eval case deftype defrecord defprotocol])
+  (:refer-clojure :only [])
   (:require [eclj.eval]
             [eclj.env :as env]
+            [eclj.ns :refer (copy-vars)]
             [eclj.interpret.cps :refer (interpreter)]))
+
+(copy-vars 'clojure.core :exclude '#{
+  eval case deftype defrecord defprotocol
+})
 
 (defn eval [x]
   (binding [eclj.eval/*evaluator* interpreter]
