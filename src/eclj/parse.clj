@@ -213,7 +213,9 @@
   [[_ target & body :as form] env]
   (let [[member args] (if (and (= (count body) 1) (seq? (first body)))
                         [(ffirst body) (nfirst body)]
-                        [(first body) (next body)])]
+                        [(first body) (next body)])
+        ;; syntax-quote may non-sensically qualify member symbols.
+        member (symbol (name member))]
     {:head :interop :form form :env env
      :target target :member member :args (vec args)}))
 
