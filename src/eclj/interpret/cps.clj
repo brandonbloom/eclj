@@ -81,14 +81,19 @@
   [{:keys [coll env]}]
   (interpret-items coll env))
 
+(defn macro? [{:keys [origin value]}]
+  (and (= origin :namespace) (-> value meta :macro)))
+
 (defmethod interpret-syntax* :name
   [{:keys [sym env]}]
   (handle (lookup env sym)
-          (fn [{:keys [origin value]}]
-            (case origin
-              :locals (answer value)
-              :host (answer value)
-              :namespace (raise {:op :deref :ref value})))))
+          (fn [{:keys [origin value] :as resolved}]
+            (if (macro? resolved)
+              (signal {:error :value-of-macro :name sym})
+              (case origin
+                :locals (answer value)
+                :host (answer value)
+                :namespace (raise {:op :deref :ref value}))))))
 
 (defmethod interpret-syntax* :if
   [{:keys [test then else env]}]
@@ -212,9 +217,8 @@
   [{:keys [f args env form]}]
   (if (symbol? f)
     (handle (lookup env f)
-            #(let [{:keys [origin value]} %]
-               (if (and (= origin :namespace)
-                        (-> value meta :macro))
+            #(let [{:keys [value] :as resolved} %]
+               (if (macro? resolved)
                  (thunk {:head :expand :macro value :form form :env env})
                  (apply-args value args env))))
     (handle (thunk f env)
