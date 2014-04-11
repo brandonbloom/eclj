@@ -36,10 +36,10 @@ The only public API is `eclj.core/eval`; works just like `clojure.core/eval`.
 
 ## License
 
-Portions of this project derived from Clojure:
+Portions of this project derived from Clojure:  
 Copyright © 2006-2014 Rich Hickey.
 
-Original code and Clojure modifications:
+Original code and Clojure modifications:  
 Copyright © 2014 Brandon Bloom
 
 Both are distributed under the Eclipse Public License either version 1.0 or
