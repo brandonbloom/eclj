@@ -18,6 +18,7 @@
     (apply static-invoke class member args)))
 
 (def patches {#'clojure.core/case 'eclj.core/case
+              #'clojure.core/ns 'eclj.core/ns
               #'clojure.core/deftype 'eclj.core/deftype
               #'clojure.core/defrecord 'eclj.core/defrecord
               #'clojure.core/defprotocol 'eclj.core/defprotocol})

@@ -190,7 +190,7 @@
   (let [lib (if prefix (symbol (str prefix \. lib)) lib)
         opts (apply hash-map options)
         {:keys [as reload reload-all require use verbose]} opts
-        loaded (contains? @#'clojure.core/*loaded-libs* lib)
+        loaded (contains? @@#'clojure.core/*loaded-libs* lib)
         load (cond reload-all
                    load-all
                    (or reload (not require) (not loaded))

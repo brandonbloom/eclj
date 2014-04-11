@@ -1,4 +1,4 @@
-(eclj.core/ns eclj.ext)
+(ns eclj.ext)
 
 ;TODO: handler, handle-with, handle, etc
 
