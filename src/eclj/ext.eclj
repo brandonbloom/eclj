@@ -1,0 +1,6 @@
+(eclj.core/ns eclj.ext)
+
+;TODO: handler, handle-with, handle, etc
+
+(defn foo [x]
+  (str "FOO: " x))
