@@ -20,4 +20,4 @@
     (throw (ex-info (pr-str effect) effect))))
 
 (defn eval [x env]
-   (->result (run x env)))
+  (->result (run x env)))

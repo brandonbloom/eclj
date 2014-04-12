@@ -243,7 +243,7 @@
    :arglists '([name [& fields] & opts+specs])}
 
   [name fields & opts+specs]
-  `(clojure.core/eval '~&form))
+  `(clojure.core/eval '~(cons 'clojure.core/deftype (next &form))))
 
 ;;;TODO: eclj support in defrecord.
 (defmacro defrecord
@@ -315,7 +315,7 @@
    :arglists '([name [& fields] & opts+specs])}
 
   [name fields & opts+specs]
-  `(clojure.core/eval '~&form))
+  `(clojure.core/eval '~(cons 'clojure.core/defrecord (next &form))))
 
 ;;;TODO: eclj support in defprotocol.
 (defmacro defprotocol
@@ -370,4 +370,4 @@
   => 17"
   {:added "1.2"}
   [name & opts+sigs]
-  `(clojure.core/eval '~&form))
+  `(clojure.core/eval '~(cons 'clojure.core/defprotocol (next &form))))
