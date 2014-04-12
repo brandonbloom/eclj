@@ -23,8 +23,8 @@ Woefully incomplete and highly experimental!
 
 Most of the special forms are implemented, but forms related to types cheat a
 bit. Specifically, `deftype`, `defprotocol`, and `defrecord` delegate to the
-Clojure compiler. This is enables interop, but prevents extended functionality
-in method bodies; that restriction will be lifted eventually. The only planned
+Clojure compiler. This enables interop, but prevents extended functionality in
+method bodies; that restriction will be lifted eventually. The only planned
 special form not yet functioning is `reify`. That leaves just `monitor-enter`
 and `monitor-exit`, which are unlikely to be implemented soon.
 
