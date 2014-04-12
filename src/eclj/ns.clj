@@ -152,7 +152,8 @@
         (flush))
       (check-cyclic-dependency path)
       (when-not (= path (first @#'clojure.core/*pending-paths*))
-        (binding [clojure.core/*pending-paths*
+        (binding [*ns* *ns* ; Because in-ns will set! this.
+                  clojure.core/*pending-paths*
                   (conj @#'clojure.core/*pending-paths* path)]
           (load* (.substring path 1))))))
 

@@ -1,7 +1,6 @@
 (ns eclj.eval-test
   (:refer-clojure :exclude [eval])
-  (:require [eclj.eval]
-            [eclj.core]))
+  (:require [eclj.core]))
 
 ;;TODO: Better results reporting
 (defn pass [] (print "."))
@@ -182,6 +181,8 @@
         '(case "str" 5 :number))
 
 (comment
+
+  (def eval eclj.core/eval)
 
   (eval '(.valueOf String true)) ;XXX Not expected to work
 
