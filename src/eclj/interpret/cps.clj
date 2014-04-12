@@ -158,21 +158,20 @@
 
 (defn exception-handler [catches default finally env]
   (fn handler [{:keys [op] :as effect} k]
-    (if (= op :answer)
-      #(handle (thunk finally env)
-               (fn [_] (fn [] (k (:value effect)))))
-      (let [error (:error effect)
-            catch (some (fn [{:keys [class sym expr] :as catch}]
-                          (when (and (= op :throw)
-                                     (instance? class error))
-                            catch))
-                          catches)]
-        (when-let [{:keys [name expr]} (or catch default)]
-          #(handle (thunk {:head :bind :env env
-                           :name name :value error :expr expr})
-                   (fn [y]
-                     (handle (thunk finally env)
-                             (fn [_] (k y))))))))))
+    (case op
+      :answer #(handle (thunk finally env)
+                       (fn [_] (fn [] (k (:value effect)))))
+      :throw (let [error (:error effect)
+                   catch (some (fn [{:keys [class sym expr] :as catch}]
+                                 (when (instance? class error) catch))
+                                 catches)]
+               (when-let [{:keys [name expr]} (or catch default)]
+                 #(handle (thunk {:head :bind :env env
+                                  :name name :value error :expr expr})
+                          (fn [y]
+                            (handle (thunk finally env)
+                                    (fn [_] (k y)))))))
+      nil)))
 
 (defmethod interpret-syntax :try
   [{:keys [try catches default finally env]}]
