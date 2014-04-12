@@ -1,9 +1,17 @@
 (ns eclj.eval
   (:refer-clojure :exclude [eval]))
 
-(defprotocol Evaluator
-  (eval-with* [this x env])
-  (eval-with [this x env]))
+(def ^:dynamic eval-cps)
+
+(defn run [x env]
+  (loop [f #(eval-cps x env)]
+    (let [x (f)]
+      (if (fn? x)
+        (recur x)
+        (let [{:keys [op k]} x]
+          (if-let [handler (get-in env [:kernel op])]
+            (recur #(k (handler x)))
+            x))))))
 
 (defn ->result [effect]
   (case (:op effect)
@@ -11,16 +19,5 @@
     :throw (throw (:error effect))
     (throw (ex-info (pr-str effect) effect))))
 
-(def evaluator-mixin
-  {:eval-with (fn [evaluator x env]
-                (->result (eval-with* evaluator x env)))})
-
-(def ^:dynamic *evaluator*)
-
-(defn eval*
-  ([syntax] (eval* syntax (:env syntax)))
-  ([x env] (eval-with* *evaluator* x env)))
-
-(defn eval
-  ([syntax] (eval syntax (:env syntax)))
-  ([x env] (eval-with *evaluator* x env)))
+(defn eval [x env]
+   (->result (run x env)))

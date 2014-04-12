@@ -1,8 +1,7 @@
 (ns eclj.eval-test
   (:refer-clojure :exclude [eval])
   (:require [eclj.eval]
-            [eclj.core]
-            [eclj.interpret.cps :refer (interpreter)]))
+            [eclj.core]))
 
 ;;TODO: Better results reporting
 (defn pass [] (print "."))

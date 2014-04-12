@@ -3,14 +3,14 @@
   (:require [eclj.eval]
             [eclj.env :as env]
             [eclj.ns :as ns]
-            [eclj.interpret.cps :refer (interpreter)]))
+            [eclj.interpret.cps :as cps]))
 
 (ns/publish-vars 'clojure.core :exclude '#{
   eval case ns deftype defrecord defprotocol refer-clojure
 })
 
 ;;XXX This ties the recursive knot for eclj.fn/fn-apply
-(alter-var-root #'eclj.eval/*evaluator* (constantly interpreter))
+(alter-var-root #'eclj.eval/eval-cps (constantly cps/interpret))
 
 (defn eval
   "Evaluates the form data structure (not text!) and returns the result."
