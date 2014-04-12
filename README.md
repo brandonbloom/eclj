@@ -31,7 +31,16 @@ and `monitor-exit`, which are unlikely to be implemented soon.
 
 ## Usage
 
-The only public API is `eclj.core/eval`; works just like `clojure.core/eval`.
+Currently, the public API is only `eclj.core` which contains the same publics
+as `clojure.core` with essentially identical functionality.
+
+You can evaluate individual forms with `eclj.core/eval` and load `.eclj` files
+with `eclj.core/require` or related namespace & code loading functions. EClj
+can interop with normal Clojure code seamlessly, but `clojure.core/ns` can't
+load EClj. Of course, `eclj.core/ns` can require either file type.
+
+Various caveats apply, but the list is too volatile to justify enumerating now.
+
 
 
 ## License
