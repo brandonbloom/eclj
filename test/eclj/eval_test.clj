@@ -3,8 +3,8 @@
   (:require [eclj.core]))
 
 (alter-var-root #'eclj.eval/*evaluator*
-;                (constantly eclj.interpret.cps/interpreter))
-               (constantly eclj.interpret.meta/interpreter))
+                (constantly eclj.interpret.cps/interpreter))
+;                (constantly eclj.interpret.meta/interpreter))
 
 ;;TODO: Better results reporting
 (defn pass [] (print "."))

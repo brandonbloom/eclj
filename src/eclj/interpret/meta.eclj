@@ -1,4 +1,4 @@
-(ns eclj.interpret.cps
+(ns eclj.interpret.meta
   (:refer-clojure :exclude [eval])
   (:require [eclj.common :refer (map->Syntax)]
             [eclj.parse :refer (parse)]
