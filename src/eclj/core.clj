@@ -10,7 +10,7 @@
 })
 
 ;;XXX This ties the recursive knot for eclj.fn/fn-apply
-(alter-var-root #'eclj.eval/eval-cps (constantly #'cps/interpret))
+(alter-var-root #'eclj.eval/*evaluator* (constantly cps/interpreter))
 
 (defn eval
   "Evaluates the form data structure (not text!) and returns the result."

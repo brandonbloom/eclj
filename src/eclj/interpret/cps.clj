@@ -1,7 +1,7 @@
 (ns eclj.interpret.cps
+  (:refer-clojure :exclude [eval])
   (:require [eclj.common :refer (map->Syntax)]
             [eclj.parse :refer (parse)]
-            [eclj.eval :refer (eval-cps)]
             [eclj.fn]))
 
 (defn answer [x]
@@ -13,8 +13,30 @@
   (interpret-syntax (parse x env)))
 
 (defn thunk
-  ([syntax] #(eval-cps (map->Syntax syntax) (:env syntax)))
-  ([expr env] #(eval-cps expr env)))
+  ([syntax] #(interpret (map->Syntax syntax) (:env syntax)))
+  ([expr env] #(interpret expr env)))
+
+(defn run [x env]
+  (loop [f (thunk x env)]
+    (let [x (f)]
+      (if (fn? x)
+        (recur x)
+        (let [{:keys [op k]} x]
+          (if-let [handler (get-in env [:kernel op])]
+            (recur #(k (handler x)))
+            x))))))
+
+(defn ->result [effect]
+  (case (:op effect)
+    :answer (:value effect)
+    :throw (throw (:error effect))
+    (throw (ex-info (pr-str effect) effect))))
+
+(def interpreter
+  {:eval (fn [x env]
+           (->result (run x env)))
+   :eval-cps (fn [x env]
+               (interpret x env))})
 
 (defn raise [action]
   (merge {:k answer} action))

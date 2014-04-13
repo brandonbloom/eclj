@@ -1,7 +1,8 @@
 (ns eclj.env
-  (:import [clojure.lang Reflector]))
+  (:import [clojure.lang Reflector])
+  (:require [eclj.eval :refer (*evaluator*)]))
 
-(defrecord Env [namespace locals kernel])
+(defrecord Env [namespace locals kernel eval])
 ;TODO: Should only the top env have kernel?
 
 (defn static-invoke [class member & args]
@@ -105,4 +106,4 @@
 })
 
 (defn ns-env []
-  (Env. *ns* {} kernel))
+  (Env. *ns* {} kernel (:eval *evaluator*)))
