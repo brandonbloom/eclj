@@ -2,6 +2,9 @@
   (:refer-clojure :exclude [eval])
   (:require [eclj.core]))
 
+(alter-var-root #'eclj.eval/eval-cps (constantly #'eclj.interpret.cps/interpret))
+(alter-var-root #'eclj.eval/eval-cps (constantly #'eclj.interpret.meta/interpret))
+
 ;;TODO: Better results reporting
 (defn pass [] (print "."))
 (defn fail [] (print "X"))
