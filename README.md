@@ -19,7 +19,7 @@ abstract interpreter and extensible JIT compiler. See [Lancet][2].
 
 ## Status
 
-Woefully incomplete and highly experimental!
+The interpreter is self-applicable, but still highly experimental!
 
 Most of the special forms are implemented, but forms related to types cheat a
 bit. Specifically, `deftype`, `defprotocol`, and `defrecord` delegate to the
