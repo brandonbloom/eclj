@@ -272,3 +272,11 @@
 (defmethod interpret-syntax :import
   [{:keys [sym]}]
   (raise {:op :import :sym sym}))
+
+(defmethod interpret-syntax :case
+  [{:keys [expr cases default env]}]
+  (handle (thunk expr env)
+          (fn [value]
+            (if-let [[_ match] (find cases value)]
+              (thunk match env)
+              (thunk default env)))))

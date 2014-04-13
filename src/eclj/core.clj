@@ -43,16 +43,14 @@
   test-constants need not be all of the same type."
   {:added "1.2"}
   [e & clauses]
-  (let [default? (odd? (count clauses))
-        cases (partition 2 (if default? (butlast clauses) clauses))
-        table (into {} (map vec cases))]
-    `(let [x# ~e]
-       (if-let [[_# e#] (find ~table x#)]
-         (eclj.eval/eval e# ~&env)
-         (if ~default?
-           (eclj.eval/eval ~(last clauses) ~&env)
-           (throw (ex-info (str "No clause matching " (pr-str x#))
-                           {:error :no-matching-clause :value x#})))))))
+  (let [default? (odd? (count clauses))]
+    `(eclj.core/case* ~e
+       ~(->> (if default? (butlast clauses) clauses)
+             (partition 2) (map vec) (into {}))
+       ~(if default?
+          (last clauses)
+          `(throw (ex-info (str "No clause matching")
+                           {:error :no-matching-clause}))))))
 
 (defmacro refer-clojure
   "Same as (refer 'clojure.eclj <filters>)"

@@ -244,6 +244,11 @@
   [[_ sym :as form] env]
   {:head :import :form form :env env :sym sym})
 
+(defmethod parse-seq 'eclj.core/case*
+  [[_ expr cases default :as form] env]
+  {:head :case :form form :env env
+   :expr expr :cases cases :default default})
+
 
 (comment
 
@@ -296,5 +301,6 @@
                odd? (clojure.core/fn odd? [x]
                       (and (not (zero? x)) (even? (dec x))))]
         ((juxt even? odd?) 11)))
+  (! '(eclj.core/case* :x {:x 1} 2))
 
 )
