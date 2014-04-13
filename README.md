@@ -46,7 +46,7 @@ Various caveats apply, but the list is too volatile to justify enumerating now.
 ## License
 
 Portions of this project derived from Clojure:  
-Copyright © 2006-2014 Rich Hickey.
+Copyright © 2006-2014 Rich Hickey
 
 Original code and Clojure modifications:  
 Copyright © 2014 Brandon Bloom
