@@ -164,7 +164,7 @@
     (let [argcount (count (if (counted? args)
                             args
                             (take max-fixed-arity args)))
-          {:keys [params expr]} (arities (max argcount max-fixed-arity))
+          {:keys [params expr]} (arities (min argcount max-fixed-arity))
           env* (if name (assoc-in env [:locals name] this) env)
           ;;TODO: Don't generate form, destructure to env & use AST directly.
           form `(let [~params '~args] ~expr)]
