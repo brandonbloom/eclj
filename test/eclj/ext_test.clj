@@ -9,7 +9,6 @@
 
 (eclj.ext/eval '(eclj.ext/handle-with
                   (fn [effect]
-                    (if (= (:op effect) :answer)
-                      {:op :answer :value (inc (:value effect))}
-                      effect))
+                    (when (= (:op effect) :answer)
+                      {:op :answer :value (inc (:value effect))}))
                   5))
