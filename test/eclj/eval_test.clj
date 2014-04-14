@@ -2,9 +2,10 @@
   (:refer-clojure :exclude [eval])
   (:require [eclj.core]))
 
+(eclj.core/require 'eclj.interpret.meta :reload)
 (alter-var-root #'eclj.eval/*evaluator*
-                (constantly eclj.interpret.cps/interpreter))
-;                (constantly eclj.interpret.meta/interpreter))
+                #_(constantly eclj.interpret.cps/interpreter)
+                (constantly eclj.interpret.meta/interpreter))
 
 ;;TODO: Better results reporting
 (defn pass [] (print "."))

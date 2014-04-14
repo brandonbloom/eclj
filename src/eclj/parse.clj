@@ -189,7 +189,8 @@
 
 (defmethod parse-seq 'throw
   [[_ expr :as form] env]
-  {:head :throw :form form :env env :expr expr})
+  {:head :raise :form form :env env
+   :expr {:op :throw :error expr}})
 
 (defmethod parse-seq 'def
   [[_ & body :as form] env]

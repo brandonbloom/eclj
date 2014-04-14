@@ -205,10 +205,9 @@
               (handle-with (exception-handler catches* default finally env)
                            (thunk try env) answer)))))
 
-(defmethod interpret-syntax :throw
+(defmethod interpret-syntax :raise
   [{:keys [expr env]}]
-  (handle (thunk expr env)
-          #(raise {:op :throw :error %})))
+  (handle (thunk expr env) raise))
 
 (defn apply-args [f args env]
   (handle (interpret-items (reverse args) env)
