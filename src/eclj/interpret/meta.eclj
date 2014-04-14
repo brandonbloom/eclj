@@ -253,14 +253,21 @@
                              :member member
                              :args %})))))
 
+(defn interpret-meta [x env]
+  (handle (thunk (meta x) env)
+          #(answer (with-meta x %))))
+
 (defmethod interpret-syntax :declare
-  [{:keys [sym]}]
-  (raise {:op :declare :sym sym}))
+  [{:keys [sym env]}]
+  (handle (interpret-meta sym env)
+          #(raise {:op :declare :sym %})))
 
 (defmethod interpret-syntax :define
   [{:keys [sym expr env]}]
   (handle (thunk expr env)
-          #(raise {:op :define :sym sym :value %})))
+          (fn [value]
+            (handle (interpret-meta sym env)
+                    #(raise {:op :define :sym % :value value})))))
 
 (defmethod interpret-syntax :assign-var
   [{:keys [name expr env]}]
