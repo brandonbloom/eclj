@@ -16,7 +16,7 @@
   "Evaluates the form data structure (not text!) and returns the result."
   {:added "1.0"}
   [form]
-  (eclj.eval/eval form (env/ns-env)))
+  (eclj.eval/result form (env/ns-env)))
 
 (defmacro case
   "Takes an expression, and a set of clauses.
@@ -52,8 +52,9 @@
           `(throw (ex-info (str "No clause matching")
                            {:error :no-matching-clause}))))))
 
+;;TODO: Automatically refer eclj.ext where appropriate?
 (defmacro refer-clojure
-  "Same as (refer 'clojure.eclj <filters>)"
+  "Same as (refer 'eclj.core <filters>)"
   [& filters]
   `(eclj.core/refer '~'eclj.core ~@filters))
 

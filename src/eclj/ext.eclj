@@ -1,4 +1,12 @@
-(ns eclj.ext)
+(ns eclj.ext
+  (:refer-clojure :exclude [eval]))
+
+(defn eval
+  "Like eclj.core/eval, but supports raising effects and accepts an optional
+   environment as a second argument."
+  ([form] (eval form (env/ns-env)))
+  ([form]
+   (raise (eclj.eval/effect form env))))
 
 ;TODO: handler, handle-with, handle, etc
 

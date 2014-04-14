@@ -28,17 +28,16 @@
             (recur #(k (handler x)))
             x))))))
 
-(defn ->result [effect]
+(defn result [effect]
   (case (:op effect)
     :answer (:value effect)
     :throw (throw (:error effect))
     (throw (ex-info (pr-str effect) effect))))
 
 (def interpreter
-  {:eval (fn [x env]
-           (->result (run x env)))
-   :eval-cps (fn [x env]
-               (interpret x env))})
+  {:result (fn [x env]
+             (result (run x env)))
+   :effect run})
 
 (defn raise [action]
   (merge {:k answer} action))

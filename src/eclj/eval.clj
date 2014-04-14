@@ -1,10 +1,9 @@
-(ns eclj.eval
-  (:refer-clojure :exclude [eval]))
+(ns eclj.eval)
 
 (def ^:dynamic *evaluator*)
 
-(defn eval-cps [x env]
-  ((:eval-cps *evaluator*) x env))
+(defn effect [x env]
+  ((:effect *evaluator*) x env))
 
-(defn eval [x env]
-  ((:eval *evaluator*) x env))
+(defn result [x env]
+  ((:result *evaluator*) x env))

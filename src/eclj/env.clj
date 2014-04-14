@@ -4,6 +4,7 @@
 
 (defrecord Env [namespace locals kernel eval])
 ;TODO: Should only the top env have kernel?
+;TODO: Should eval go in to the kernel?
 
 (defn static-invoke [class member & args]
   (if (zero? (count args))
@@ -106,4 +107,4 @@
 })
 
 (defn ns-env []
-  (Env. *ns* {} kernel (:eval *evaluator*)))
+  (Env. *ns* {} kernel (:result *evaluator*)))

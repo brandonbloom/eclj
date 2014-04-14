@@ -95,7 +95,7 @@
                 (indexing-push-back-reader 1 path))]
     (with-bindings {Compiler/LOADER (RT/makeClassLoader)}
       (loop [ret nil]
-        (let [x (eclj.eval/eval (reader/read rdr false eof) (env/ns-env))]
+        (let [x (eclj.eval/result (reader/read rdr false eof) (env/ns-env))]
           (if (identical? eof x)
             ret
             (recur x)))))))
