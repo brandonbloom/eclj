@@ -26,10 +26,8 @@
         stmts (into stmts
                     (for [[f & args] refs
                           :when (not (= :gen-class f))]
-                      (if (= f :refer-clojure)
-                        `(eclj.core/refer-clojure ~@args)
-                        `(~(symbol "eclj.core" (name f))
-                          ~@(map #(list 'quote %) args)))))
+                      `(~(symbol "eclj.core" (name f))
+                        ~@(map #(list 'quote %) args))))
         sym (if metadata (vary-meta sym merge metadata) sym)]
     {:name sym
      :meta (meta sym)
