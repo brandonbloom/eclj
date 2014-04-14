@@ -1,14 +1,28 @@
 (ns eclj.ext
-  (:refer-clojure :exclude [eval]))
+  (:refer-clojure :exclude [eval])
+  (:require [eclj.common :refer (map->Syntax)]
+            [eclj.ns]))
+
+(defn ns-env []
+  (eclj.env/ns-env))
+
+(defn local-env []
+  (eclj.env/ns-env)) ;;TODO: XXX proper local-env!!
+
+;;XXX quasi-primitives
+(defmacro raise [effect]
+  `(eclj.ext/raise ~effect))
 
 (defn eval
   "Like eclj.core/eval, but supports raising effects and accepts an optional
    environment as a second argument."
-  ([form] (eval form (env/ns-env)))
-  ([form]
+  ([form] (eval form (ns-env)))
+  ([form env]
    (raise (eclj.eval/effect form env))))
 
-;TODO: handler, handle-with, handle, etc
+(defn handle-with* [handler f]
+  (let [effect (eclj.eval/effect (list f) (local-env))]
+    (raise (or (handler effect) effect))))
 
-(defn foo [x]
-  (str "FOO: " x))
+(defmacro handle-with [handler & body]
+  `(handle-with* ~handler (fn [] ~@body)))

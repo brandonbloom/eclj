@@ -2,9 +2,8 @@
   (:require [eclj.common :refer (pure map->Syntax)]
             [eclj.fn :refer (map->Fn)]))
 
-;TODO: Is "parse" the right word?
 ;TODO: file/line/column and other metadata
-;TODO: namespaced heads
+;TODO: namespaced symbols can't be shadowed; hence eclj.env/patches
 ;TODO: validation conditions.
 ; ie raise error for (var inc inc), (quote x x), odd number bindings, etc
 
@@ -249,6 +248,11 @@
   [[_ expr cases default :as form] env]
   {:head :case :form form :env env
    :expr expr :cases cases :default default})
+
+;;TODO: Provide a single vau-like primitive for eclj extensions.
+(defmethod parse-seq 'eclj.ext/raise
+  [[_ expr :as form] env]
+  {:head :raise :form form :env env :expr expr})
 
 
 (comment
