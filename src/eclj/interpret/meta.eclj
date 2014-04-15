@@ -12,8 +12,19 @@
 (defn interpret [x env]
   (interpret-syntax (parse x env)))
 
+(defn thunk [expr env]
+  #(interpret expr env))
+
+(defn thunk-syntax [syntax]
+  (thunk (map->Syntax syntax) (:env syntax)))
+
+(defprotocol Applicable
+  (-apply [this arg]))
+
 (defn run [x env]
-  (loop [f (run x env)]
+  (println "meta run:")
+  (fipp.edn/pprint x)
+  (loop [f (thunk x env)]
     (let [x (f)]
       (if (fn? x)
         (recur x)
@@ -21,9 +32,6 @@
           (if-let [handler (get-in env [:kernel op])]
             (recur #(k (handler x)))
             x))))))
-
-(defn run-syntax [syntax]
-  (run (map->Syntax syntax) (:env syntax)))
 
 (defn result [effect]
   (case (:op effect)
@@ -130,9 +138,6 @@
                             :bindings (vec bindings*) :expr expr}))
     (thunk expr env)))
 
-(defprotocol Applicable
-  (-apply [this arg]))
-
 (defn recur-handler [f env]
   (fn [effect k]
     (case (:op effect)
@@ -154,7 +159,8 @@
 
   clojure.lang.Var
   (-apply [this arg]
-    (raise {:op :invoke :f this :args arg}))
+    (handle (raise {:op :deref :ref this})
+            #(-apply % arg)))
 
   eclj.fn.Fn
   (-apply [{:keys [name arities max-fixed-arity env] :as this} args]

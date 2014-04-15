@@ -21,19 +21,22 @@
 (defprotocol Applicable
   (-apply [this arg]))
 
-(defn call [f & args]
-  (if (instance? eclj.fn.Fn f)
-    (-apply f args)
-    (apply f args)))
+(defmacro call [f & args]
+  `(let [f# ~f]
+     (if (instance? eclj.fn.Fn f#)
+        (-apply f# ~args)
+        (f# ~@args))))
 
 (defn run [x env]
+  (println "cps run:")
+  (fipp.edn/pprint x)
   (loop [f (thunk x env)]
     (let [x (call f)]
       (if (fn? x)
         (recur x)
         (let [{:keys [op k]} x]
           (if-let [handler (get-in env [:kernel op])]
-            (recur #(call k (handler x)))
+            (recur #(call k (call handler x)))
             x))))))
 
 (defn result [effect]
@@ -162,7 +165,8 @@
 
   clojure.lang.Var
   (-apply [this arg]
-    (raise {:op :invoke :f this :args arg}))
+    (handle (raise {:op :deref :ref this})
+            #(-apply % arg)))
 
   eclj.fn.Fn
   (-apply [{:keys [name arities max-fixed-arity env] :as this} args]
