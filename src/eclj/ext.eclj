@@ -6,9 +6,6 @@
 (defn ns-env []
   (eclj.env/ns-env))
 
-(defn local-env []
-  (eclj.env/ns-env)) ;;TODO: XXX proper local-env!!
-
 ;;XXX quasi-primitives
 (defmacro raise [effect]
   `(eclj.ext/raise ~effect))
@@ -21,7 +18,7 @@
    (raise (eclj.eval/effect form env))))
 
 (defn handle-with* [handler f]
-  (let [effect (eclj.eval/effect (list f) (local-env))]
+  (let [effect (eclj.eval/effect (list f) (ns-env))]
     (raise (or (handler effect) effect))))
 
 (defmacro handle-with [handler & body]
