@@ -165,6 +165,8 @@
             acc
             (recur (+ acc n) (dec n)))))
 
+(=clj '(with-out-str (doseq [a [:x :y :z]] (prn a))))
+
 (=clj '(import 'java.util.Date))
 
 (=clj '(case 5

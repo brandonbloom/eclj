@@ -24,12 +24,10 @@
 (defmacro call [f & args]
   `(let [f# ~f]
      (if (instance? eclj.fn.Fn f#)
-        (-apply f# ~args)
+        (-apply f# [~@args])
         (f# ~@args))))
 
 (defn run [x env]
-  (println "cps run:")
-  (fipp.edn/pprint x)
   (loop [f (thunk x env)]
     (let [x (call f)]
       (if (fn? x)

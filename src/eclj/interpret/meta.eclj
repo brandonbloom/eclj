@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [eval])
   (:require [eclj.common :refer (map->Syntax)]
             [eclj.parse :refer (parse)]
-            [eclj.fn]))
+            [eclj.fn]
+            [eclj.ext]))
 
 (defn answer [x]
   {:op :answer :value x})
@@ -22,8 +23,8 @@
   (-apply [this arg]))
 
 (defn run [x env]
-  (println "meta run:")
-  (fipp.edn/pprint x)
+  ;(println "meta run:")
+  ;(fipp.edn/pprint x)
   (loop [f (thunk x env)]
     (let [x (f)]
       (if (fn? x)
@@ -32,6 +33,11 @@
           (if-let [handler (get-in env [:kernel op])]
             (recur #(k (handler x)))
             x))))))
+
+(defn eval [x env]
+  ;(println "meta eval:")
+  ;(fipp.edn/pprint (parse x env))
+  (eclj.ext/raise (run x env)))
 
 (defn result [effect]
   (case (:op effect)
@@ -107,24 +113,20 @@
 
 (defmethod interpret-syntax :if
   [{:keys [test then else env]}]
-  (handle (thunk test env)
-          #(thunk (if % then else) env)))
+  (answer (eval (if (eval test env) then else) env)))
 
 (defmethod interpret-syntax :var
   [{:keys [sym env]}]
-  (handle (raise {:op :resolve :env env :sym sym})
-          (fn [{:keys [origin value]}]
-            (assert (= origin :namespace))
-            (answer value))))
+  (let [{:keys [origin value]} (eclj.ext/raise
+                                 {:op :resolve :env env :sym sym})]
+    (assert (= origin :namespace))
+    (answer value)))
 
 (defmethod interpret-syntax :do
   [{:keys [statements ret env]}]
-  (if (seq statements)
-    (handle (thunk-syntax {:head :do :env env
-                           :statements (pop statements)
-                           :ret (peek statements)})
-            (fn [_] (thunk ret env)))
-    (thunk ret env)))
+  (doseq [statement statements]
+    (eval statement env))
+  (answer (eval ret env)))
 
 (defmethod interpret-syntax :bind
   [{:keys [name value expr env]}]
