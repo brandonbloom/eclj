@@ -4,8 +4,12 @@
             [eclj.parse :refer (parse)]
             [eclj.fn]))
 
-(defn answer [x]
-  {:op :answer :value x})
+(def answer ^:eclj/answer
+  (fn [x] {:op :answer :value x}))
+
+;; Necessary because eclj.interpret.meta redefines answer symbolically.
+(defn tail-effect? [effect]
+  (-> effect :k meta :eclj/answer))
 
 (defmulti interpret-syntax :head)
 
@@ -18,8 +22,7 @@
 (defn thunk-syntax [syntax]
   (thunk (map->Syntax syntax) (:env syntax)))
 
-(defprotocol Applicable
-  (-apply [this arg]))
+(defmulti -apply (fn [f arg] (class f)))
 
 (defmacro call [f & args]
   `(let [f# ~f]
@@ -142,45 +145,41 @@
                             :bindings (vec bindings*) :expr expr}))
     (thunk expr env)))
 
+(defmethod -apply Object
+  [f arg]
+  (signal {:error :not-callable :f f :args arg}))
+
+(defmethod -apply clojure.lang.IFn
+  [f arg]
+  (raise {:op :invoke :f f :args arg}))
+
+(defmethod -apply clojure.lang.Var
+  [f arg]
+  (handle (raise {:op :deref :ref f})
+          #(-apply % arg)))
+
 (defn recur-handler [f env]
   (fn [effect k]
     (case (:op effect)
       :answer #(k (:value effect))
-      :recur (if (= (:k effect) answer)
+      :recur (if (tail-effect? effect)
                (thunk-syntax {:head :apply :f f :arg (:args effect) :env env})
                (signal {:error :non-tail-position}))
       nil)))
 
-(extend-protocol Applicable
+(defmethod -apply eclj.fn.Fn
+  [{:keys [name arities max-fixed-arity env] :as f} args]
+  (let [argcount (count (if (counted? args)
+                          args
+                          (take max-fixed-arity args)))
+        {:keys [params expr]} (arities (min argcount max-fixed-arity))
+        env* (if name (assoc-in env [:locals name] f) env)
+        ;;TODO: Don't generate form, destructure to env & use AST directly.
+        form `(let [~params '~args] ~expr)]
+    (handle-with (recur-handler f env)
+                 (thunk form env*) answer)))
 
-  Object
-  (-apply [this arg]
-    (signal {:error :not-callable :f this :args arg}))
-
-  clojure.lang.IFn
-  (-apply [this arg]
-    (raise {:op :invoke :f this :args arg}))
-
-  clojure.lang.Var
-  (-apply [this arg]
-    (handle (raise {:op :deref :ref this})
-            #(-apply % arg)))
-
-  eclj.fn.Fn
-  (-apply [{:keys [name arities max-fixed-arity env] :as this} args]
-    (let [argcount (count (if (counted? args)
-                            args
-                            (take max-fixed-arity args)))
-          {:keys [params expr]} (arities (min argcount max-fixed-arity))
-          env* (if name (assoc-in env [:locals name] this) env)
-          ;;TODO: Don't generate form, destructure to env & use AST directly.
-          form `(let [~params '~args] ~expr)]
-      (handle-with (recur-handler this env)
-                   (thunk form env*) answer)))
-
-  ;TODO: Special case symbols & keywords ?
-
-  )
+;TODO: defmethod -apply for symbols & keywords ?
 
 (defmethod interpret-syntax :letfn
   [{:keys [bindings expr env]}]

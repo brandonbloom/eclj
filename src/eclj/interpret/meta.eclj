@@ -5,8 +5,15 @@
             [eclj.fn]
             [eclj.ext]))
 
-(defn answer [x]
-  {:op :answer :value x})
+;;TODO: parse doesn't preserve metadata correctly. Fix & match cps' answer def.
+(def answer
+  (with-meta
+    (fn [x] {:op :answer :value x})
+    {:eclj/answer true}))
+
+;; Necessary because eclj.interpret.meta redefines answer symbolically.
+(defn tail-effect? [effect]
+  (-> effect :k meta :eclj/answer))
 
 (defmulti interpret-syntax :head)
 
@@ -19,8 +26,7 @@
 (defn thunk-syntax [syntax]
   (thunk (map->Syntax syntax) (:env syntax)))
 
-(defprotocol Applicable
-  (-apply [this arg]))
+(defmulti -apply (fn [f arg] (class f)))
 
 (defn run [x env]
   ;(println "meta run:")
@@ -38,6 +44,9 @@
   ;(println "meta eval:")
   ;(fipp.edn/pprint (parse x env))
   (eclj.ext/raise (run x env)))
+
+(defn eval-syntax [syntax]
+  (eval (map->Syntax syntax) (:env syntax)))
 
 (defn result [effect]
   (case (:op effect)
@@ -86,12 +95,7 @@
   (answer value))
 
 (defn interpret-items [coll env]
-  ((fn rec [dest src]
-     (if (empty? src)
-       (answer dest)
-       (handle (thunk (first src) env)
-               #(rec (conj dest %) (next src)))))
-   (empty coll) coll))
+  (answer (into (empty coll) (map #(eval % env) coll))))
 
 (defmethod interpret-syntax :collection
   [{:keys [coll env]}]
@@ -102,14 +106,13 @@
 
 (defmethod interpret-syntax :name
   [{:keys [sym env]}]
-  (handle (lookup env sym)
-          (fn [{:keys [origin value] :as resolved}]
-            (if (macro? resolved)
-              (signal {:error :value-of-macro :name sym})
-              (case origin
-                :locals (answer value)
-                :host (answer value)
-                :namespace (raise {:op :deref :ref value}))))))
+  (let [{:keys [origin value] :as resolved} (eclj.ext/raise (lookup env sym))]
+    (if (macro? resolved)
+      (signal {:error :value-of-macro :name sym})
+      (case origin
+        :locals (answer value)
+        :host (answer value)
+        :namespace (raise {:op :deref :ref value})))))
 
 (defmethod interpret-syntax :if
   [{:keys [test then else env]}]
@@ -130,55 +133,50 @@
 
 (defmethod interpret-syntax :bind
   [{:keys [name value expr env]}]
-  (thunk expr (assoc-in env [:locals name] value)))
+  (answer (eval expr (assoc-in env [:locals name] value))))
 
 (defmethod interpret-syntax :let
   [{:keys [bindings expr env]}]
-  (if-let [[{:keys [name init]} & bindings*] (seq bindings)]
-    (handle (thunk init env)
-            #(thunk-syntax {:head :let :env (assoc-in env [:locals name] %)
-                            :bindings (vec bindings*) :expr expr}))
-    (thunk expr env)))
+  (answer
+    (if-let [[{:keys [name init]} & bindings*] (seq bindings)]
+      (let [value (eval init env)]
+        (eval-syntax {:head :let :env (assoc-in env [:locals name] value)
+                      :bindings (vec bindings*) :expr expr}))
+      (eval expr env))))
+
+(defmethod -apply Object
+  [f arg]
+  (signal {:error :not-callable :f f :args arg}))
+
+(defmethod -apply clojure.lang.IFn
+  [f arg]
+  (raise {:op :invoke :f f :args arg}))
+
+(defmethod -apply clojure.lang.Var
+  [f arg]
+  (handle (raise {:op :deref :ref f})
+          #(-apply % arg)))
 
 (defn recur-handler [f env]
-  (fn [effect k]
-    (case (:op effect)
-      :answer #(k (:value effect))
-      :recur (if (= (:k effect) answer)
-               (thunk-syntax {:head :apply :f f :arg (:args effect) :env env})
-               (signal {:error :non-tail-position}))
-      nil)))
+  (fn [effect]
+    (when (= (:op effect) :recur)
+      (if (tail-effect? effect)
+        (eval-syntax {:head :apply :f f :arg (:args effect) :env env})
+        (eclj.ext/raise
+          (signal {:error :non-tail-position}))))))
 
-(extend-protocol Applicable
-
-  Object
-  (-apply [this arg]
-    (signal {:error :not-callable :f this :args arg}))
-
-  clojure.lang.IFn
-  (-apply [this arg]
-    (raise {:op :invoke :f this :args arg}))
-
-  clojure.lang.Var
-  (-apply [this arg]
-    (handle (raise {:op :deref :ref this})
-            #(-apply % arg)))
-
-  eclj.fn.Fn
-  (-apply [{:keys [name arities max-fixed-arity env] :as this} args]
-    (let [argcount (count (if (counted? args)
-                            args
-                            (take max-fixed-arity args)))
-          {:keys [params expr]} (arities (min argcount max-fixed-arity))
-          env* (if name (assoc-in env [:locals name] this) env)
-          ;;TODO: Don't generate form, destructure to env & use AST directly.
-          form `(let [~params '~args] ~expr)]
-      (handle-with (recur-handler this env)
-                   (thunk form env*) answer)))
-
-  ;TODO: Special case symbols & keywords ?
-
-  )
+(defmethod -apply eclj.fn.Fn
+  [{:keys [name arities max-fixed-arity env] :as f} args]
+  (let [argcount (count (if (counted? args)
+                          args
+                          (take max-fixed-arity args)))
+        {:keys [params expr]} (arities (min argcount max-fixed-arity))
+        env* (if name (assoc-in env [:locals name] f) env)
+        ;;TODO: Don't generate form, destructure to env & use AST directly.
+        form `(let [~params '~args] ~expr)]
+    ;(eclj.ext/handle-with (recur-handler f env) ;XXX ================
+      (answer (eval form env*))
+      ))
 
 (defmethod interpret-syntax :letfn
   [{:keys [bindings expr env]}]
@@ -294,18 +292,15 @@
 (defmethod interpret-syntax :loop
   [{:keys [bindings expr env]}]
   (let [syms (vec (take-nth 2 bindings))
-        inits (vec (take-nth 2 (next bindings)))]
+        inits (vec (take-nth 2 (next bindings)))
+        values (eclj.ext/raise (interpret-items inits env))]
     ;;TODO: Generate AST directly instead of syntax forms.
-    (handle (interpret-items inits env)
-            (fn [values]
-              (thunk `((fn ~syms ~expr)
-                       ~@(map #(list 'quote %) values))
-                     env)))))
+    (answer (eval `((fn ~syms ~expr) ~@(map #(list 'quote %) values)) env))))
 
 (defmethod interpret-syntax :recur
   [{:keys [args env]}]
-  (handle (interpret-items args env)
-          #(raise {:op :recur :args %})))
+  (let [args (interpret-items args env)]
+    (answer (eclj.ext/raise {:op :recur :args args}))))
 
 (defmethod interpret-syntax :import
   [{:keys [sym]}]
