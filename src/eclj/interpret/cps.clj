@@ -301,7 +301,10 @@
         inits (vec (take-nth 2 (next bindings)))]
     ;;TODO: Generate AST directly instead of syntax forms.
     (handle (interpret-items inits env)
-            #(thunk `((fn ~syms ~expr) ~@%) env))))
+            (fn [values]
+              (thunk `((fn ~syms ~expr)
+                       ~@(map #(list 'quote %) values))
+                     env)))))
 
 (defmethod interpret-syntax :recur
   [{:keys [args env]}]
