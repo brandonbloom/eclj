@@ -96,6 +96,7 @@
 (expect #(= @% 3) '(do (def redefined 2) (def redefined 3)))
 (expect #(= @% 4) '(def foo "bar" 4))
 (expect #(= (-> % meta :doc) "bar") '(def foo "bar" 4))
+(=clj '(-> (defn asdf [a b c]) meta :arglists))
 
 (=clj '(try 1))
 (=clj '(try 1 (catch Throwable e 2)))

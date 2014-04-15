@@ -234,59 +234,54 @@
 ;;TODO: Replace expand special with Applicable Macro type?
 (defmethod interpret-syntax :expand
   [{:keys [macro form env]}]
-  (handle (thunk-syntax {:head :apply :env env :f macro
-                         :arg (list* form env (next form))})
-          #(thunk % env)))
+  (let [expanded (eval-syntax {:head :apply :env env
+                               :f macro :arg (list* form env (next form))})]
+    (answer (eval expanded env))))
 
 (defmethod interpret-syntax :new
   [{:keys [class args env]}]
-  (handle (thunk class env)
-          (fn [class*] ;TODO: Validate
-            (fn []
-              (handle (interpret-items args env)
-                      #(raise {:op :new :class class* :args %}))))))
+  (let [class* (eval class env)
+        args* (eclj.ext/raise (interpret-items args env))]
+    (answer (eclj.ext/raise {:op :new :class class* :args args*}))))
 
 (defmethod interpret-syntax :interop
   [{:keys [target member args env]}]
-  (handle (thunk target env)
-          (fn [object]
-            (handle (interpret-items (vec args) env)
-                    #(raise {:op :interop
+  (let [object (eval target env)
+        args* (eclj.ext/raise (interpret-items (vec args) env))]
+    (answer (eclj.ext/raise {:op :interop
                              :object object
                              :member member
-                             :args %})))))
+                             :args args*}))))
 
-(defn interpret-meta [x env]
-  (handle (thunk (meta x) env)
-          #(answer (with-meta x %))))
+(defn eval-meta [x env]
+  (with-meta x (eval (meta x) env)))
 
 (defmethod interpret-syntax :declare
   [{:keys [sym env]}]
-  (handle (interpret-meta sym env)
-          #(raise {:op :declare :sym %})))
+  (let [sym* (eval-meta sym env)]
+    (answer (eclj.ext/raise {:op :declare :sym sym*}))))
 
 (defmethod interpret-syntax :define
   [{:keys [sym expr env]}]
-  (handle (thunk expr env)
-          (fn [value]
-            (handle (interpret-meta sym env)
-                    #(raise {:op :define :sym % :value value})))))
+  (let [value (eval expr env)
+        sym* (eval-meta sym env)]
+    (answer (eclj.ext/raise {:op :define :sym sym* :value value}))))
 
 (defmethod interpret-syntax :assign-var
   [{:keys [name expr env]}]
-  (let [{:keys [origin value]} (lookup env name)]
-    (if (= origin :namespace)
-      (handle (thunk expr env)
-              #(raise {:op :assign-var :var value :value %}))
-      (signal {:error :not-assignable :location value}))))
+  (let [{:keys [origin] loc :value} (lookup env name)]
+    (answer
+      (if (= origin :namespace)
+        (let [value (eval expr env)]
+          (eclj.ext/raise {:op :assign-var :var loc :value value}))
+        (eclj.ext/raise (signal {:error :not-assignable :location loc}))))))
 
 (defmethod interpret-syntax :assign-field
   [{:keys [object field expr env]}]
-  (handle (thunk object env)
-          (fn [instance]
-            (handle (thunk expr env)
-                    #(raise {:op :assign-field :object instance
-                             :field field :value %})))))
+  (let [instance (eval object env)
+        value (eval expr env)]
+    (answer (eclj.ext/raise {:op :assign-field :object instance
+                             :field field :value value}))))
 
 (defmethod interpret-syntax :loop
   [{:keys [bindings expr env]}]
@@ -307,8 +302,6 @@
 
 (defmethod interpret-syntax :case
   [{:keys [expr cases default env]}]
-  (handle (thunk expr env)
-          (fn [value]
-            (if-let [[_ match] (find cases value)]
-              (thunk match env)
-              (thunk default env)))))
+  (let [value (eval expr env)
+        body (if-let [[_ match] (find cases value)] match default)]
+    (answer (eval body env))))
