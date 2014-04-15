@@ -18,14 +18,22 @@
 (defn thunk-syntax [syntax]
   (thunk (map->Syntax syntax) (:env syntax)))
 
+(defprotocol Applicable
+  (-apply [this arg]))
+
+(defn call [f & args]
+  (if (instance? eclj.fn.Fn f)
+    (-apply f args)
+    (apply f args)))
+
 (defn run [x env]
   (loop [f (thunk x env)]
-    (let [x (f)]
+    (let [x (call f)]
       (if (fn? x)
         (recur x)
         (let [{:keys [op k]} x]
           (if-let [handler (get-in env [:kernel op])]
-            (recur #(k (handler x)))
+            (recur #(call k (handler x)))
             x))))))
 
 (defn result [effect]
@@ -132,9 +140,6 @@
             #(thunk-syntax {:head :let :env (assoc-in env [:locals name] %)
                             :bindings (vec bindings*) :expr expr}))
     (thunk expr env)))
-
-(defprotocol Applicable
-  (-apply [this arg]))
 
 (defn recur-handler [f env]
   (fn [effect k]

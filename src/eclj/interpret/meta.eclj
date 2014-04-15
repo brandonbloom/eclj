@@ -12,14 +12,8 @@
 (defn interpret [x env]
   (interpret-syntax (parse x env)))
 
-(defn thunk [expr env]
-  #(interpret expr env))
-
-(defn thunk-syntax [syntax]
-  (thunk (map->Syntax syntax) (:env syntax)))
-
 (defn run [x env]
-  (loop [f (thunk x env)]
+  (loop [f (run x env)]
     (let [x (f)]
       (if (fn? x)
         (recur x)
@@ -27,6 +21,9 @@
           (if-let [handler (get-in env [:kernel op])]
             (recur #(k (handler x)))
             x))))))
+
+(defn run-syntax [syntax]
+  (run (map->Syntax syntax) (:env syntax)))
 
 (defn result [effect]
   (case (:op effect)
