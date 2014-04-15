@@ -82,13 +82,14 @@
 
 (defn lookup [{:keys [locals] :as env} sym]
   (if-let [[_ value] (find locals sym)]
-    (answer {:origin :locals :value value})
-    (raise {:op :resolve
-            :env env
-            :sym sym
-            :k #(if %
-                  (answer %)
-                  (signal {:error :undefined :sym sym}))})))
+    {:origin :locals :value value}
+    (eclj.ext/raise {:op :resolve
+                     :env env
+                     :sym sym
+                     :k #(if %
+                           (answer %)
+                           (eclj.ext/raise
+                             (signal {:error :undefined :sym sym})))})))
 
 (defmethod interpret-syntax :constant
   [{:keys [value]}]
@@ -106,7 +107,7 @@
 
 (defmethod interpret-syntax :name
   [{:keys [sym env]}]
-  (let [{:keys [origin value] :as resolved} (eclj.ext/raise (lookup env sym))]
+  (let [{:keys [origin value] :as resolved} (lookup env sym)]
     (if (macro? resolved)
       (signal {:error :value-of-macro :name sym})
       (case origin
@@ -180,7 +181,7 @@
 
 (defmethod interpret-syntax :letfn
   [{:keys [bindings expr env]}]
-  (thunk expr (update-in env [:locals] merge bindings)))
+  (answer (eval expr (update-in env [:locals] merge bindings))))
 
 (defn exception-handler [catches default finally env]
   (fn handler [{:keys [op] :as effect} k]
@@ -209,11 +210,11 @@
 
 (defmethod interpret-syntax :raise
   [{:keys [expr env]}]
-  (handle (thunk expr env) raise))
+  (eclj.ext/raise (eval expr env)))
 
 (defn apply-args [f args env]
-  (handle (interpret-items (reverse args) env)
-          #(thunk-syntax {:head :apply :f f :arg % :env env})))
+  (let [values (eclj.ext/raise (interpret-items (reverse args) env))]
+    (answer (eval-syntax {:head :apply :f f :arg values :env env}))))
 
 (defmethod interpret-syntax :apply
   [{:keys [f arg]}]
@@ -222,14 +223,13 @@
 (defmethod interpret-syntax :invoke
   [{:keys [f args env form]}]
   (if (symbol? f)
-    (handle (lookup env f)
-            #(let [{:keys [value] :as resolved} %]
-               (if (macro? resolved)
-                 (thunk-syntax {:head :expand :macro value
-                                :form form :env env})
-                 (apply-args value args env))))
-    (handle (thunk f env)
-            #(apply-args % args env))))
+    (let [{:keys [value] :as resolved} (lookup env f)]
+      (answer
+        (if (macro? resolved)
+          (eval-syntax {:head :expand :macro value
+                        :form form :env env})
+          (eclj.ext/raise (apply-args value args env)))))
+    (answer (eclj.ext/raise (apply-args (eval f env) args env)))))
 
 ;;TODO: Replace expand special with Applicable Macro type?
 (defmethod interpret-syntax :expand
@@ -274,12 +274,11 @@
 
 (defmethod interpret-syntax :assign-var
   [{:keys [name expr env]}]
-  (handle (lookup env name)
-          (fn [{:keys [origin value]}]
-            (if (= origin :namespace)
-              (handle (thunk expr env)
-                      #(raise {:op :assign-var :var value :value %}))
-              (signal {:error :not-assignable :location value})))))
+  (let [{:keys [origin value]} (lookup env name)]
+    (if (= origin :namespace)
+      (handle (thunk expr env)
+              #(raise {:op :assign-var :var value :value %}))
+      (signal {:error :not-assignable :location value}))))
 
 (defmethod interpret-syntax :assign-field
   [{:keys [object field expr env]}]
