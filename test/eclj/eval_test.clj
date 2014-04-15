@@ -41,6 +41,7 @@
 (=clj #'inc)
 (=clj '#'inc)
 (=clj '(identity inc))
+(=clj '(#'identity #'inc))
 (=clj 'Boolean)
 (throws #(= (:error %) :undefined) 'something-undefined)
 

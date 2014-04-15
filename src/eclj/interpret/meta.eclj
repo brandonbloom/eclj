@@ -20,9 +20,6 @@
 (defn interpret [x env]
   (interpret-syntax (parse x env)))
 
-(defn thunk [expr env]
-  #(interpret expr env))
-
 (defmulti -apply (fn [f arg] (class f)))
 
 (defn run [x env]
@@ -58,20 +55,6 @@
 ;;TODO: Implement restarts, etc.
 (defn signal [condition]
   (raise (merge {:op :condition} condition)))
-
-(defn handle-with [handler effect k]
-  (let [f (partial handle-with handler)]
-    (if (fn? effect)
-      #(f (effect) k)
-      (or (handler effect k)
-          (assoc effect :k #(f ((:k effect) %) k))))))
-
-(defn default-handler [effect k]
-  (when (= (:op effect) :answer)
-    #(k (:value effect))))
-
-(defn handle [effect k]
-  (handle-with default-handler effect k))
 
 (defn lookup [{:keys [locals] :as env} sym]
   (if-let [[_ value] (find locals sym)]
@@ -148,8 +131,7 @@
 
 (defmethod -apply clojure.lang.Var
   [f arg]
-  (handle (raise {:op :deref :ref f})
-          #(-apply % arg)))
+  (-apply (eclj.ext/raise {:op :deref :ref f}) arg))
 
 (defn recur-handler [f env]
   (fn [effect]
