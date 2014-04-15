@@ -23,14 +23,9 @@
 (defn thunk [expr env]
   #(interpret expr env))
 
-(defn thunk-syntax [syntax]
-  (thunk (map->Syntax syntax) (:env syntax)))
-
 (defmulti -apply (fn [f arg] (class f)))
 
 (defn run [x env]
-  ;(println "meta run:")
-  ;(fipp.edn/pprint x)
   (loop [f (thunk x env)]
     (let [x (f)]
       (if (fn? x)
@@ -41,8 +36,6 @@
             x))))))
 
 (defn eval [x env]
-  ;(println "meta eval:")
-  ;(fipp.edn/pprint (parse x env))
   (eclj.ext/raise (run x env)))
 
 (defn eval-syntax [syntax]
@@ -184,29 +177,27 @@
   (answer (eval expr (update-in env [:locals] merge bindings))))
 
 (defn exception-handler [catches default finally env]
-  (fn handler [{:keys [op] :as effect} k]
+  (fn handler [{:keys [op] :as effect}]
     (case op
-      :answer #(handle (thunk finally env)
-                       (fn [_] (fn [] (k (:value effect)))))
+      :answer (do (eval finally env) nil)
       :throw (let [error (:error effect)
                    catch (some (fn [{:keys [class sym expr] :as catch}]
                                  (when (instance? class error) catch))
                                  catches)]
                (when-let [{:keys [name expr]} (or catch default)]
-                 #(handle (thunk-syntax {:head :bind :env env
-                                         :name name :value error :expr expr})
-                          (fn [y]
-                            (handle (thunk finally env)
-                                    (fn [_] (k y)))))))
+                 (let [ret (eval-syntax {:head :bind :env env
+                                         :name name :value error :expr expr})]
+                   (eval finally env)
+                   (answer ret))))
       nil)))
 
 (defmethod interpret-syntax :try
   [{:keys [try catches default finally env]}]
-  (handle (interpret-items (mapv :type catches) env)
-          (fn [classes] ;TODO: Ensure items are exception classes.
-            (let [catches* (map #(assoc %1 :class %2) catches classes)]
-              (handle-with (exception-handler catches* default finally env)
-                           (thunk try env) answer)))))
+  ;;TODO: Ensure items are exception classes.
+  (let [classes (eclj.ext/raise (interpret-items (mapv :type catches) env))
+        catches* (map #(assoc %1 :class %2) catches classes)
+        handler (exception-handler catches* default finally env)]
+    (eclj.ext/handle-with handler (run try env))))
 
 (defmethod interpret-syntax :raise
   [{:keys [expr env]}]
