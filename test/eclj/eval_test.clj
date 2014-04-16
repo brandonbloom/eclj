@@ -122,6 +122,13 @@
 (throws #(= (-> % :eclj/effect :error) :non-tail-position)
         '(loop [] (inc (recur))))
 
+;;TODO: FIXME
+#_(=clj '(try
+         ;; The symbolic fn will be excuted by fnil's compiled fn.
+         ((clojure.core/fnil #(throw %) (Exception. "!")) nil)
+         (catch Exception e
+           123)))
+
 (=clj '(import [java.util Date Currency]))
 (throws (constantly true) '(var Class))
 

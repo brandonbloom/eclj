@@ -31,20 +31,16 @@
       (k (f effect))
       (answer effect))))
 
-(defn run [x env]
+(defn eval-result [x env]
   (handle-with (kernel-handler (:kernel env))
-    (answer (eval x env))))
+    (eval x env)))
 
-(defn result [effect]
-  (case (:op effect)
-    :answer (:value effect)
-    :throw (throw (:error effect))
-    (throw (ex-info (pr-str effect) effect))))
+(defn eval-effect [x env]
+  (handle-with answer (eval-result x env)))
 
 (def interpreter
-  {:result (fn [x env]
-             (result (run x env)))
-   :effect run})
+  {:result eval-result
+   :effect eval-effect})
 
 ;;TODO: Implement restarts, etc.
 (defn signal [condition]
