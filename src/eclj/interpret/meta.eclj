@@ -38,7 +38,7 @@
 (defn eval-effect [x env]
   (handle-with answer (eval-result x env)))
 
-(def interpreter
+(def evaluator
   {:result eval-result
    :effect eval-effect})
 

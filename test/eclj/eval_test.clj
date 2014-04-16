@@ -5,7 +5,7 @@
 ;(eclj.core/require 'eclj.interpret.meta :reload)
 (alter-var-root #'eclj.eval/*evaluator*
                 (constantly eclj.interpret.cps/interpreter)
-                #_(constantly eclj.interpret.meta/interpreter))
+                #_(constantly eclj.interpret.meta/evaluator))
 
 ;;TODO: Better results reporting
 (defn pass [] (print "."))
