@@ -25,7 +25,7 @@
 (defmulti parse-seq (fn [xs env] (first xs)))
 
 (defn parse-invoke [[f & args :as form] env]
-  {:head :invoke :form form :env env :f f :args (vec args)})
+  {:head :invoke :form form :env env :f f :args args})
 
 (extend-protocol Expression
 
