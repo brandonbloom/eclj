@@ -325,3 +325,10 @@
             (if-let [[_ match] (find cases value)]
               (thunk match env)
               (thunk default env)))))
+
+(defmethod interpret-syntax :meta
+  [{:keys [expr meta env]}]
+  (handle (thunk expr env)
+          (fn [object]
+            (handle (thunk meta env)
+                    #(answer (with-meta object %))))))

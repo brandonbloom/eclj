@@ -2,7 +2,6 @@
   (:require [eclj.common :refer (pure map->Syntax)]
             [eclj.fn :refer (map->Fn)]))
 
-;TODO: file/line/column and other metadata
 ;TODO: namespaced symbols can't be shadowed; hence eclj.env/patches
 ;TODO: validation conditions.
 ; ie raise error for (var inc inc), (quote x x), odd number bindings, etc
@@ -13,11 +12,16 @@
 (defn parse [form env]
   (pure (map->Syntax (-parse form env))))
 
+(defn parse-meta [{:keys [form env] :as syntax}]
+  (if-let [metadata (meta form)]
+    {:head :meta :expr (map->Syntax syntax) :meta metadata :env env}
+    syntax))
+
 (defn parse-constant [x env]
   {:head :constant :form x :env env :value x})
 
 (defn parse-collection [coll env]
-  {:head :collection :form coll :env env :coll coll})
+  (parse-meta {:head :collection :form coll :env env :coll coll}))
 
 (doseq [t [nil java.lang.Object]]
   (extend t Expression {:-parse parse-constant}))
@@ -39,7 +43,7 @@
   clojure.lang.ISeq
   (-parse [xs env]
     (cond
-      (empty? xs) (parse-constant xs env)
+      (empty? xs) (parse-meta (parse-constant xs env))
       (symbol? (first xs)) (parse-seq xs env)
       :else (parse-invoke xs env)))
 
@@ -132,8 +136,8 @@
 
 (defmethod parse-seq 'fn*
   [form env]
-  {:head :constant :form form :env env
-   :value (parse-fn form env)})
+  (parse-meta {:head :constant :form form :env env
+               :value (parse-fn form env)}))
 
 (defmethod parse-seq 'letfn*
   [[_ bindings & body :as form] env]
@@ -259,3 +263,5 @@
 (defmethod parse-seq 'eclj.ext/raise
   [[_ expr :as form] env]
   {:head :raise :form form :env env :expr expr})
+
+;TODO: reify et al (note: reified objects may have metadata)

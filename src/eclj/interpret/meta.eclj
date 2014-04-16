@@ -5,11 +5,8 @@
             [eclj.fn]
             [eclj.ext :refer (handle-with raise)]))
 
-;;TODO: parse doesn't preserve metadata correctly. Fix & match cps' answer def.
-(def answer
-  (with-meta
-    (fn [x] {:op :answer :value x})
-    {:eclj/answer true}))
+(def answer ^:eclj/answer
+  (fn [x] {:op :answer :value x}))
 
 ;; Necessary because eclj.interpret.meta redefines answer symbolically.
 (defn tail-effect? [effect]
@@ -256,3 +253,7 @@
   (let [value (eval expr env)
         body (if-let [[_ match] (find cases value)] match default)]
     (eval body env)))
+
+(defmethod eval-head :meta
+  [{:keys [expr meta env]}]
+  (with-meta (eval expr env) (eval meta env)))
