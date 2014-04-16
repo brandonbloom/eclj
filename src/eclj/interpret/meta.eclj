@@ -3,7 +3,7 @@
   (:require [eclj.common :refer (map->Syntax)]
             [eclj.parse :refer (parse)]
             [eclj.fn]
-            [eclj.ext]))
+            [eclj.ext :refer (handle-with raise)]))
 
 ;;TODO: parse doesn't preserve metadata correctly. Fix & match cps' answer def.
 (def answer
@@ -15,28 +15,25 @@
 (defn tail-effect? [effect]
   (-> effect :k meta :eclj/answer))
 
-(defmulti interpret-syntax :head)
-
-(defn interpret [x env]
-  (interpret-syntax (parse x env)))
-
-(defmulti -apply (fn [f arg] (class f)))
-
-(defn run [x env]
-  (loop [f (thunk x env)]
-    (let [x (f)]
-      (if (fn? x)
-        (recur x)
-        (let [{:keys [op k]} x]
-          (if-let [handler (get-in env [:kernel op])]
-            (recur #(k (handler x)))
-            x))))))
+(defmulti eval-head :head)
 
 (defn eval [x env]
-  (eclj.ext/raise (run x env)))
+  (eval-head (parse x env)))
 
 (defn eval-syntax [syntax]
   (eval (map->Syntax syntax) (:env syntax)))
+
+(defmulti -apply (fn [f arg] (class f)))
+
+(defn kernel-handler [kernel]
+  (fn [{:keys [op k] :as effect}]
+    (if-let [f (get kernel op)]
+      (k (f effect))
+      (answer effect))))
+
+(defn run [x env]
+  (handle-with (kernel-handler (:kernel env))
+    (eval x env)))
 
 (defn result [effect]
   (case (:op effect)
@@ -49,9 +46,6 @@
              (result (run x env)))
    :effect run})
 
-(defn raise [action]
-  (merge {:k answer} action))
-
 ;;TODO: Implement restarts, etc.
 (defn signal [condition]
   (raise (merge {:op :condition} condition)))
@@ -59,67 +53,60 @@
 (defn lookup [{:keys [locals] :as env} sym]
   (if-let [[_ value] (find locals sym)]
     {:origin :locals :value value}
-    (eclj.ext/raise {:op :resolve
-                     :env env
-                     :sym sym
-                     :k #(if %
-                           (answer %)
-                           (eclj.ext/raise
-                             (signal {:error :undefined :sym sym})))})))
+    (or (raise {:op :resolve :env env :sym sym})
+        (signal {:error :undefined :sym sym}))))
 
-(defmethod interpret-syntax :constant
+(defmethod eval-head :constant
   [{:keys [value]}]
-  (answer value))
+  value)
 
-(defn interpret-items [coll env]
-  (answer (into (empty coll) (map #(eval % env) coll))))
+(defn eval-items [coll env]
+  (into (empty coll) (map #(eval % env) coll)))
 
-(defmethod interpret-syntax :collection
+(defmethod eval-head :collection
   [{:keys [coll env]}]
-  (interpret-items coll env))
+  (eval-items coll env))
 
 (defn macro? [{:keys [origin value]}]
   (and (= origin :namespace) (-> value meta :macro)))
 
-(defmethod interpret-syntax :name
+(defmethod eval-head :name
   [{:keys [sym env]}]
   (let [{:keys [origin value] :as resolved} (lookup env sym)]
     (if (macro? resolved)
       (signal {:error :value-of-macro :name sym})
       (case origin
-        :locals (answer value)
-        :host (answer value)
+        :locals value
+        :host value
         :namespace (raise {:op :deref :ref value})))))
 
-(defmethod interpret-syntax :if
+(defmethod eval-head :if
   [{:keys [test then else env]}]
-  (answer (eval (if (eval test env) then else) env)))
+  (eval (if (eval test env) then else) env))
 
-(defmethod interpret-syntax :var
+(defmethod eval-head :var
   [{:keys [sym env]}]
-  (let [{:keys [origin value]} (eclj.ext/raise
-                                 {:op :resolve :env env :sym sym})]
+  (let [{:keys [origin value]} (raise {:op :resolve :env env :sym sym})]
     (assert (= origin :namespace))
-    (answer value)))
+    value))
 
-(defmethod interpret-syntax :do
+(defmethod eval-head :do
   [{:keys [statements ret env]}]
   (doseq [statement statements]
     (eval statement env))
-  (answer (eval ret env)))
+  (eval ret env))
 
-(defmethod interpret-syntax :bind
+(defmethod eval-head :bind
   [{:keys [name value expr env]}]
-  (answer (eval expr (assoc-in env [:locals name] value))))
+  (eval expr (assoc-in env [:locals name] value)))
 
-(defmethod interpret-syntax :let
+(defmethod eval-head :let
   [{:keys [bindings expr env]}]
-  (answer
-    (if-let [[{:keys [name init]} & bindings*] (seq bindings)]
-      (let [value (eval init env)]
-        (eval-syntax {:head :let :env (assoc-in env [:locals name] value)
-                      :bindings (vec bindings*) :expr expr}))
-      (eval expr env))))
+  (if-let [[{:keys [name init]} & bindings*] (seq bindings)]
+    (let [value (eval init env)]
+      (eval-syntax {:head :let :env (assoc-in env [:locals name] value)
+                    :bindings (vec bindings*) :expr expr}))
+    (eval expr env)))
 
 (defmethod -apply Object
   [f arg]
@@ -131,15 +118,14 @@
 
 (defmethod -apply clojure.lang.Var
   [f arg]
-  (-apply (eclj.ext/raise {:op :deref :ref f}) arg))
+  (-apply (raise {:op :deref :ref f}) arg))
 
 (defn recur-handler [f env]
   (fn [effect]
     (when (= (:op effect) :recur)
       (if (tail-effect? effect)
         (eval-syntax {:head :apply :f f :arg (:args effect) :env env})
-        (eclj.ext/raise
-          (signal {:error :non-tail-position}))))))
+        (signal {:error :non-tail-position})))))
 
 (defmethod -apply eclj.fn.Fn
   [{:keys [name arities max-fixed-arity env] :as f} args]
@@ -151,12 +137,12 @@
         ;;TODO: Don't generate form, destructure to env & use AST directly.
         form `(let [~params '~args] ~expr)]
     ;(eclj.ext/handle-with (recur-handler f env) ;XXX ================
-      (answer (eval form env*))
+      (eval form env*)
       ))
 
-(defmethod interpret-syntax :letfn
+(defmethod eval-head :letfn
   [{:keys [bindings expr env]}]
-  (answer (eval expr (update-in env [:locals] merge bindings))))
+  (eval expr (update-in env [:locals] merge bindings)))
 
 (defn exception-handler [catches default finally env]
   (fn handler [{:keys [op] :as effect}]
@@ -173,108 +159,102 @@
                    (answer ret))))
       nil)))
 
-(defmethod interpret-syntax :try
+(defmethod eval-head :try
   [{:keys [try catches default finally env]}]
   ;;TODO: Ensure items are exception classes.
-  (let [classes (eclj.ext/raise (interpret-items (mapv :type catches) env))
+  (let [classes (eval-items (mapv :type catches) env)
         catches* (map #(assoc %1 :class %2) catches classes)
         handler (exception-handler catches* default finally env)]
-    (eclj.ext/handle-with handler (run try env))))
+    (handle-with handler (eval try env))))
 
-(defmethod interpret-syntax :raise
+(defmethod eval-head :raise
   [{:keys [expr env]}]
-  (eclj.ext/raise (eval expr env)))
+  (raise (eval expr env)))
 
 (defn apply-args [f args env]
-  (let [values (eclj.ext/raise (interpret-items (reverse args) env))]
-    (answer (eval-syntax {:head :apply :f f :arg values :env env}))))
+  (let [values (eval-items (reverse args) env)]
+    (eval-syntax {:head :apply :f f :arg values :env env})))
 
-(defmethod interpret-syntax :apply
+(defmethod eval-head :apply
   [{:keys [f arg]}]
   (-apply f arg))
 
-(defmethod interpret-syntax :invoke
+(defmethod eval-head :invoke
   [{:keys [f args env form]}]
   (if (symbol? f)
     (let [{:keys [value] :as resolved} (lookup env f)]
-      (answer
-        (if (macro? resolved)
-          (eval-syntax {:head :expand :macro value
-                        :form form :env env})
-          (eclj.ext/raise (apply-args value args env)))))
-    (answer (eclj.ext/raise (apply-args (eval f env) args env)))))
+      (if (macro? resolved)
+        (eval-syntax {:head :expand :macro value
+                      :form form :env env})
+        (apply-args value args env)))
+    (apply-args (eval f env) args env)))
 
 ;;TODO: Replace expand special with Applicable Macro type?
-(defmethod interpret-syntax :expand
+(defmethod eval-head :expand
   [{:keys [macro form env]}]
   (let [expanded (eval-syntax {:head :apply :env env
                                :f macro :arg (list* form env (next form))})]
-    (answer (eval expanded env))))
+    (eval expanded env)))
 
-(defmethod interpret-syntax :new
+(defmethod eval-head :new
   [{:keys [class args env]}]
   (let [class* (eval class env)
-        args* (eclj.ext/raise (interpret-items args env))]
-    (answer (eclj.ext/raise {:op :new :class class* :args args*}))))
+        args* (eval-items args env)]
+    (raise {:op :new :class class* :args args*})))
 
-(defmethod interpret-syntax :interop
+(defmethod eval-head :interop
   [{:keys [target member args env]}]
   (let [object (eval target env)
-        args* (eclj.ext/raise (interpret-items (vec args) env))]
-    (answer (eclj.ext/raise {:op :interop
-                             :object object
-                             :member member
-                             :args args*}))))
+        args* (eval-items (vec args) env)]
+    (raise {:op :interop :object object :member member :args args*})))
 
 (defn eval-meta [x env]
   (with-meta x (eval (meta x) env)))
 
-(defmethod interpret-syntax :declare
+(defmethod eval-head :declare
   [{:keys [sym env]}]
   (let [sym* (eval-meta sym env)]
-    (answer (eclj.ext/raise {:op :declare :sym sym*}))))
+    (raise {:op :declare :sym sym*})))
 
-(defmethod interpret-syntax :define
+(defmethod eval-head :define
   [{:keys [sym expr env]}]
   (let [value (eval expr env)
         sym* (eval-meta sym env)]
-    (answer (eclj.ext/raise {:op :define :sym sym* :value value}))))
+    (raise {:op :define :sym sym* :value value})))
 
-(defmethod interpret-syntax :assign-var
+(defmethod eval-head :assign-var
   [{:keys [name expr env]}]
   (let [{:keys [origin] loc :value} (lookup env name)]
-    (answer
-      (if (= origin :namespace)
-        (let [value (eval expr env)]
-          (eclj.ext/raise {:op :assign-var :var loc :value value}))
-        (eclj.ext/raise (signal {:error :not-assignable :location loc}))))))
+    (if (= origin :namespace)
+      (let [value (eval expr env)]
+        (raise {:op :assign-var :var loc :value value}))
+      (signal {:error :not-assignable :location loc}))))
 
-(defmethod interpret-syntax :assign-field
+(defmethod eval-head :assign-field
   [{:keys [object field expr env]}]
   (let [instance (eval object env)
         value (eval expr env)]
-    (answer (eclj.ext/raise {:op :assign-field :object instance
-                             :field field :value value}))))
+    (raise {:op :assign-field :object instance :field field :value value})))
 
-(defmethod interpret-syntax :loop
+(defmethod eval-head :loop
   [{:keys [bindings expr env]}]
   (let [syms (vec (take-nth 2 bindings))
         inits (vec (take-nth 2 (next bindings)))
-        values (eclj.ext/raise (interpret-items inits env))]
+        values (eval-items inits env)]
     ;;TODO: Generate AST directly instead of syntax forms.
-    (answer (eval `((fn ~syms ~expr) ~@(map #(list 'quote %) values)) env))))
+    (eval `((fn ~syms ~expr) ~@(map #(list 'quote %) values)) env)))
 
-(defmethod interpret-syntax :recur
+(defmethod eval-head :recur
   [{:keys [args env]}]
-  (let [args (interpret-items args env)]
-    (answer (eclj.ext/raise {:op :recur :args args}))))
+  (let [args (eval-items args env)]
+    (raise {:op :recur :args args})))
 
-(defmethod interpret-syntax :import
+(defmethod eval-head :import
   [{:keys [sym]}]
   (raise {:op :import :sym sym}))
 
-(defmethod interpret-syntax :case
+(defmethod eval-head :case
   [{:keys [expr cases default env]}]
   (let [value (eval expr env)
         body (if-let [[_ match] (find cases value)] match default)]
-    (answer (eval body env))))
+    (eval body env)))

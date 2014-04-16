@@ -18,7 +18,8 @@
    (raise (eclj.eval/effect form env))))
 
 (defn handle-with* [handler f]
-  (let [effect (eclj.eval/effect (list f) (ns-env))]
+  ;;TODO Don't hard code to the cps interpreter.
+  (let [effect (eclj.interpret.cps/run (list f) (ns-env))]
     (raise (or (handler effect) effect))))
 
 (defmacro handle-with [handler & body]

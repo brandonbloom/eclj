@@ -108,6 +108,8 @@
         '(try 1 (throw (ex-info "err" {})) 2
               (catch IllegalArgumentException e 2)))
 (pass-fail (= 3 (eclj.core/eval '(try (throw (ex-info "err" {}))
+                                      (catch Exception e 3)))))
+(pass-fail (= 3 (eclj.core/eval '(try (throw (ex-info "err" {}))
                                       (catch :default e 3)))))
 (expect #(instance? Exception %)
         '(try (throw (ex-info "err" {}))
