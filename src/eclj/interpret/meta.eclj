@@ -33,7 +33,7 @@
 
 (defn run [x env]
   (handle-with (kernel-handler (:kernel env))
-    (eval x env)))
+    (answer (eval x env))))
 
 (defn result [effect]
   (case (:op effect)
@@ -122,7 +122,7 @@
 
 (defn recur-handler [f env]
   (fn [effect]
-    (when (= (:op effect) :recur)
+    (when (= (:op effect) ::recur)
       (if (tail-effect? effect)
         (eval-syntax {:head :apply :f f :arg (:args effect) :env env})
         (signal {:error :non-tail-position})))))
@@ -136,9 +136,7 @@
         env* (if name (assoc-in env [:locals name] f) env)
         ;;TODO: Don't generate form, destructure to env & use AST directly.
         form `(let [~params '~args] ~expr)]
-    ;(eclj.ext/handle-with (recur-handler f env) ;XXX ================
-      (eval form env*)
-      ))
+    (handle-with (recur-handler f env) (eval form env*))))
 
 (defmethod eval-head :letfn
   [{:keys [bindings expr env]}]
@@ -167,17 +165,21 @@
         handler (exception-handler catches* default finally env)]
     (handle-with handler (eval try env))))
 
+(defmethod eval-head :handle-with
+  [{:keys [handler expr env]}]
+  (handle-with (eval handler env) (eval expr env)))
+
 (defmethod eval-head :raise
   [{:keys [expr env]}]
   (raise (eval expr env)))
 
-(defn apply-args [f args env]
-  (let [values (eval-items (reverse args) env)]
-    (eval-syntax {:head :apply :f f :arg values :env env})))
-
 (defmethod eval-head :apply
   [{:keys [f arg]}]
   (-apply f arg))
+
+(defn apply-args [f args env]
+  (let [values (eval-items (reverse args) env)]
+    (eval-syntax {:head :apply :f f :arg values :env env})))
 
 (defmethod eval-head :invoke
   [{:keys [f args env form]}]
@@ -247,7 +249,7 @@
 (defmethod eval-head :recur
   [{:keys [args env]}]
   (let [args (eval-items args env)]
-    (raise {:op :recur :args args})))
+    (raise {:op ::recur :args args})))
 
 (defmethod eval-head :import
   [{:keys [sym]}]

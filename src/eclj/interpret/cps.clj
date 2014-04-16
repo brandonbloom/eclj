@@ -162,9 +162,9 @@
   (fn [effect k]
     (case (:op effect)
       :answer #(k (:value effect))
-      :recur (if (tail-effect? effect)
-               (thunk-syntax {:head :apply :f f :arg (:args effect) :env env})
-               (signal {:error :non-tail-position}))
+      ::recur (if (tail-effect? effect)
+                (thunk-syntax {:head :apply :f f :arg (:args effect) :env env})
+                (signal {:error :non-tail-position}))
       nil)))
 
 (defmethod -apply eclj.fn.Fn
@@ -173,6 +173,7 @@
                           args
                           (take max-fixed-arity args)))
         {:keys [params expr]} (arities (min argcount max-fixed-arity))
+        ;;TODO: signal arity errors
         env* (if name (assoc-in env [:locals name] f) env)
         ;;TODO: Don't generate form, destructure to env & use AST directly.
         form `(let [~params '~args] ~expr)]
@@ -209,6 +210,11 @@
             (let [catches* (map #(assoc %1 :class %2) catches classes)]
               (handle-with (exception-handler catches* default finally env)
                            (thunk try env) answer)))))
+
+(defmethod interpret-syntax :handle-with
+  [{:keys [handler expr env]}]
+  (handle (thunk handler env)
+          #(handle-with % (thunk expr env) answer)))
 
 (defmethod interpret-syntax :raise
   [{:keys [expr env]}]
@@ -306,7 +312,7 @@
 (defmethod interpret-syntax :recur
   [{:keys [args env]}]
   (handle (interpret-items args env)
-          #(raise {:op :recur :args %})))
+          #(raise {:op ::recur :args %})))
 
 (defmethod interpret-syntax :import
   [{:keys [sym]}]

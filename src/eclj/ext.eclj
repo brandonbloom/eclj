@@ -6,9 +6,13 @@
 (defn ns-env []
   (eclj.env/ns-env))
 
-;;XXX quasi-primitives
+;;XXX quasi-primitive
 (defmacro raise [effect]
   `(eclj.ext/raise ~effect))
+
+;;XXX quasi-primitive
+(defmacro handle-with [handler & body]
+  `(eclj.ext/handle-with ~handler ~@body))
 
 (defn eval
   "Like eclj.core/eval, but supports raising effects and accepts an optional
@@ -16,11 +20,3 @@
   ([form] (eval form (ns-env)))
   ([form env]
    (raise (eclj.eval/effect form env))))
-
-(defn handle-with* [handler f]
-  ;;TODO Don't hard code to the cps interpreter.
-  (let [effect (eclj.interpret.cps/run (list f) (ns-env))]
-    (raise (or (handler effect) effect))))
-
-(defmacro handle-with [handler & body]
-  `(handle-with* ~handler (fn [] ~@body)))

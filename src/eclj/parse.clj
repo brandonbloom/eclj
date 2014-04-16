@@ -250,6 +250,12 @@
    :expr expr :cases cases :default default})
 
 ;;TODO: Provide a single vau-like primitive for eclj extensions.
+
+(defmethod parse-seq 'eclj.ext/handle-with
+  [[_ handler & body :as form] env]
+  {:head :handle-with :form form :env env
+   :handler handler :expr (implicit-do body)})
+
 (defmethod parse-seq 'eclj.ext/raise
   [[_ expr :as form] env]
   {:head :raise :form form :env env :expr expr})
