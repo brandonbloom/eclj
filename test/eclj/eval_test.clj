@@ -43,7 +43,7 @@
 (=clj '(identity inc))
 (=clj '(#'identity #'inc))
 (=clj 'Boolean)
-(throws #(= (:error %) :undefined) 'something-undefined)
+(throws #(= (-> % :eclj/effect :error) :undefined) 'something-undefined)
 
 (=clj ())
 
@@ -51,7 +51,7 @@
 (=clj '(if false 5 10))
 (=clj '(if true 5))
 (=clj '(if false 5))
-(throws #(= (:error %) :undefined) '(if xx 5))
+(throws #(= (-> % :eclj/effect :error) :undefined) '(if xx 5))
 
 (=clj '(- 10 3))
 (=clj '((identity -) 10 3))
@@ -119,7 +119,8 @@
     (eclj.core/eval '(try (throw (ex-info "err" {}))
                           (catch :default e e)
                           (finally (print 2))))))
-(throws #(= (:error %) :non-tail-position) '(loop [] (inc (recur))))
+(throws #(= (-> % :eclj/effect :error) :non-tail-position)
+        '(loop [] (inc (recur))))
 
 (=clj '(import [java.util Date Currency]))
 (throws (constantly true) '(var Class))

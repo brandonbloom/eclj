@@ -44,7 +44,7 @@
   (case (:op effect)
     :answer (:value effect)
     :throw (throw (:error effect))
-    (throw (ex-info (pr-str effect) effect))))
+    (throw (ex-info "Unhandled Effect" {:eclj/effect effect}))))
 
 (def interpreter
   {:result (fn [x env]
