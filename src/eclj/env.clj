@@ -31,8 +31,7 @@
       (if (var? x)
         (if-let [patch (patches x)]
           (try-lookup ns patch)
-          {:origin :namespace
-           :value (or (-> x meta :eclj/alias) x)})
+          {:origin :namespace :value (or (-> x meta :eclj/alias) x)})
         {:origin :host :value x})
       {:origin :host :value (clojure.lang.RT/classForName (name sym))})
     (catch ClassNotFoundException e
