@@ -8,15 +8,15 @@
                 #_(constantly eclj.interpret.meta/evaluator))
 
 ;;TODO: Better results reporting
-(defn pass [] (print "."))
-(defn fail [] (print "X"))
+(defn pass [] (print ".") (flush) true)
+(defn fail [] (print "X") (flush) false)
 (defn pass-fail [x] (if x (pass) (fail)))
 
 (defn =clj [x]
   (let [ret (eclj.core/eval x)]
-    (assert (= (clojure.core/eval x) ret)
-            (str (pr-str x) " evaluated to " (pr-str ret)))
-    (pass)
+    (when-not (pass-fail (= (clojure.core/eval x) ret))
+      (println)
+      (println (pr-str x) "evaluated to" (pr-str ret)))
     ret))
 
 (defmacro expect [pred expr]
