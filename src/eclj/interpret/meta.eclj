@@ -126,6 +126,7 @@
                           args
                           (take max-fixed-arity args)))
         {:keys [params expr]} (arities (min argcount max-fixed-arity))
+        ;;TODO: port arity checking code from cps interpreter.
         env* (if name (assoc-in env [:locals name] f) env)
         ;;TODO: Don't generate form, destructure to env & use AST directly.
         form `(let [~params '~args] ~expr)]

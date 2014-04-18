@@ -172,13 +172,17 @@
   (let [argcount (count (if (counted? args)
                           args
                           (take max-fixed-arity args)))
-        {:keys [params expr]} (arities (min argcount max-fixed-arity))
-        ;;TODO: signal arity errors
-        env* (if name (assoc-in env [:locals name] f) env)
-        ;;TODO: Don't generate form, destructure to env & use AST directly.
-        form `(let [~params '~args] ~expr)]
-    (handle-with (recur-handler f env)
-                 (thunk form env*) answer)))
+        arity (if (:variadic? (arities max-fixed-arity))
+                (min argcount max-fixed-arity)
+                argcount)
+        {:keys [params expr] :as method} (arities arity)]
+    (if method
+      (let [env* (if name (assoc-in env [:locals name] f) env)
+            ;;TODO: Don't generate form, destructure to env & use AST directly.
+            form `(let [~params '~args] ~expr)]
+        (handle-with (recur-handler f env)
+                     (thunk form env*) answer))
+      (signal {:error :arity, :given argcount}))))
 
 ;TODO: defmethod -apply for symbols & keywords ?
 
