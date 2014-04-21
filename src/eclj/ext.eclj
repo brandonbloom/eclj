@@ -11,7 +11,7 @@
   `(eclj.ext/raise ~effect))
 
 (defn handle-with* [handler thunk]
-  (let [eff (eclj.eval/effect (list thunk) (ns-env))]
+  (let [eff (eclj.ext/eval-effect (list thunk) (assoc (ns-env) :kernel nil))]
     (raise (or (handler eff) eff))))
 
 (defmacro handle-with [handler & body]
@@ -25,4 +25,4 @@
    environment as a second argument."
   ([form] (eval form (ns-env)))
   ([form env]
-   (raise (eclj.eval/effect form env))))
+   (raise (eclj.ext/eval-effect form env))))

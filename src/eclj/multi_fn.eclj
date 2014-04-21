@@ -1,0 +1,15 @@
+(ns eclj.multi-fn
+  (:refer-clojure :exclude [defmulti defmethod]))
+
+;;;XXX This is a placeholder implementation.
+
+(defmacro defmulti [name dispatch-fn]
+  (let [table (atom {})]
+    `(def ~name (with-meta
+                  (let [f# ~dispatch-fn]
+                    (fn [& args#]
+                      (apply (@~table (apply f# args#)) args#)))
+                  {::table ~table}))))
+
+(defmacro defmethod [name dispatch-val & fn-tail]
+  `(swap! (-> ~name meta ::table) assoc ~dispatch-val (fn ~@fn-tail)))

@@ -4,7 +4,7 @@
 
 (defn ! [x]
   (-> (parse x (ns-env))
-      #_fipp.edn/pprint))
+      fipp.edn/pprint))
 
 ;;TODO: assertions
 
@@ -38,6 +38,7 @@
 (! '(fn* []))
 (! '(fn* [] 1))
 (! '(fn* foo [] 1))
+(! '(fn* foo [] (+ 2 4)))
 (! '(fn* foo [x] x))
 (! '(fn* foo [x y & z] z))
 (! '(fn* foo [x y & z] x y z))

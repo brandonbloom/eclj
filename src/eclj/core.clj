@@ -3,10 +3,11 @@
   (:require [eclj.eval]
             [eclj.env :as env]
             [eclj.ns :as ns]
-            [eclj.interpret.cps :as cps]))
+            [eclj.interpret.cps :as cps]
+            [eclj.common :refer (map->Syntax)]))
 
 (ns/publish-vars 'clojure.core :exclude '#{
-  eval case ns deftype defrecord defprotocol refer-clojure
+  eval case ns deftype defrecord defprotocol refer-clojure apply
 })
 
 ;;XXX This ties the recursive knot for eclj.fn/fn-apply
@@ -17,6 +18,21 @@
   {:added "1.0"}
   [form]
   (eclj.eval/result form (env/ns-env)))
+
+(defn- spread
+  [arglist]
+  (cond
+   (nil? arglist) nil
+   (nil? (next arglist)) (seq (first arglist))
+   :else (cons (first arglist) (spread (next arglist)))))
+
+(defn apply
+  "Applies fn f to the argument list formed by prepending intervening
+  arguments to args."
+  {:added "1.0"}
+  [f & args]
+  (eval (map->Syntax {:head :apply :env (env/ns-env)
+                      :f f :arg (spread args)})))
 
 (defmacro case
   "Takes an expression, and a set of clauses.

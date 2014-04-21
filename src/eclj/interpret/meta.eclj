@@ -1,9 +1,10 @@
 (ns eclj.interpret.meta
-  (:refer-clojure :exclude [eval])
+  (:refer-clojure :exclude [eval defmulti defmethod])
   (:require [eclj.common :refer (map->Syntax)]
             [eclj.parse :refer (parse)]
             [eclj.fn]
-            [eclj.ext :refer (handle-with raise)]))
+            [eclj.ext :refer (handle-with raise continue)]
+            [eclj.multi-fn :refer (defmulti defmethod)]))
 
 (def answer ^:eclj/answer
   (fn [x] {:op :answer :value x}))
@@ -21,13 +22,21 @@
 (defn eval-syntax [syntax]
   (eval (map->Syntax syntax) (:env syntax)))
 
-(defmulti -apply (fn [f arg] (class f)))
+(declare -apply) ;XXX (defmulti -apply (fn [f arg] (class f)))
 
 (defn kernel-handler [kernel]
   (fn [{:keys [op k] :as effect}]
+    (println "kernel effect!")
+    (fipp.edn/pprint (dissoc effect :k))
+    ;(println "--")
     (if-let [f (get kernel op)]
-      (k (f effect))
-      (answer effect))))
+      (do
+        ;(fipp.edn/pprint effect)
+        ;(when (#{:invoke} op)
+        ;  (println "meta kernel call")
+        ;  (fipp.edn/pprint (:f effect)))
+        (continue k (f effect)))
+      effect)))
 
 (defn eval-result [x env]
   (handle-with (kernel-handler (:kernel env))
@@ -102,36 +111,37 @@
                     :bindings (vec bindings*) :expr expr}))
     (eval expr env)))
 
-(defmethod -apply Object
-  [f arg]
-  (signal {:error :not-callable :f f :args arg}))
-
-(defmethod -apply clojure.lang.IFn
-  [f arg]
-  (raise {:op :invoke :f f :args arg}))
-
-(defmethod -apply clojure.lang.Var
-  [f arg]
-  (-apply (raise {:op :deref :ref f}) arg))
-
 (defn recur-handler [f env]
   (fn [effect]
     (when (= (:op effect) ::recur)
       (if (tail-effect? effect)
-        (eval-syntax {:head :apply :f f :arg (:args effect) :env env})
+        (answer (eval-syntax {:head :apply :f f :arg (:args effect) :env env}))
         (signal {:error :non-tail-position})))))
 
-(defmethod -apply eclj.fn.Fn
-  [{:keys [name arities max-fixed-arity env] :as f} args]
-  (let [argcount (count (if (counted? args)
-                          args
-                          (take max-fixed-arity args)))
-        {:keys [params expr]} (arities (min argcount max-fixed-arity))
-        ;;TODO: port arity checking code from cps interpreter.
-        env* (if name (assoc-in env [:locals name] f) env)
-        ;;TODO: Don't generate form, destructure to env & use AST directly.
-        form `(let [~params '~args] ~expr)]
-    (handle-with (recur-handler f env) (eval form env*))))
+(defn -apply [f arg]
+  (cond
+
+    (instance? eclj.fn.Fn f)
+    (let [{:keys [name arities max-fixed-arity env]} f
+            argcount (count (if (counted? args)
+                              args
+                              (take max-fixed-arity args)))
+            {:keys [params expr]} (arities (min argcount max-fixed-arity))
+            ;;TODO: port arity checking code from cps interpreter.
+            env* (if name (assoc-in env [:locals name] f) env)
+            ;;TODO: Don't generate form, destructure to env & use AST directly.
+            form `(let [~params '~args] ~expr)]
+        (handle-with (recur-handler f env) (eval form env*)))
+
+    (instance? clojure.lang.Var f)
+    (-apply (raise {:op :deref :ref f}) arg)
+
+    (instance? clojure.lang.IFn f)
+    (raise {:op :invoke :f f :args arg})
+
+    :else (signal {:error :not-callable :f f :args arg})
+
+    ))
 
 (defmethod eval-head :letfn
   [{:keys [bindings expr env]}]

@@ -257,5 +257,9 @@
   [[_ expr :as form] env]
   {:head :raise :form form :env env :expr expr})
 
+(defmethod parse-seq 'eclj.ext/eval-effect
+  [[_ expr env-expr] env]
+  {:head :eval-effect :expr expr :env-expr env-expr :env env})
+
 ;;TODO: Provide a single vau-like primitive for eclj extensions.
 ;TODO: reify et al (note: reified objects may have metadata)

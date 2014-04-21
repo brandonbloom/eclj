@@ -2,13 +2,19 @@
   (:refer-clojure :exclude [eval])
   (:require [eclj.common :refer (map->Syntax)]))
 
+(def ^:dynamic *depth* 0)
+
 (defn fn-apply [{:keys [env] :as f} arg]
   ;; Use the evaluator that the function was defined with to prevent an
   ;; infinite loop where eval is itself a symbolic Fn on which fn-apply runs.
   ;;TODO: Figure out if this makes sense / if there is something better.
   (let [eval (:eval env)
         syntax (map->Syntax {:head :apply :f f :arg arg :env env})]
-    (eval syntax env)))
+    (binding [*depth* (inc *depth*)]
+      ;(println "depth: " *depth*)
+      (when (> *depth* 1)
+        (throw (Exception. "too deep")))
+      (eval syntax env))))
 
 (defrecord Fn [name arities max-fixed-arity env]
   clojure.lang.Fn

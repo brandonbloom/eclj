@@ -13,20 +13,25 @@
 (defn pass-fail [x] (if x (pass) (fail)))
 
 (defn =clj [x]
-  (let [ret (eclj.core/eval x)]
-    (when-not (pass-fail (= (clojure.core/eval x) ret))
-      (println)
-      (println (pr-str x) "evaluated to" (pr-str ret)))
-    ret))
+  (try
+    (let [ret (eclj.ext/eval x)]
+      (when-not (pass-fail (= (clojure.core/eval x) ret))
+        (println)
+        (println (pr-str x) "evaluated to" (pr-str ret)))
+      ret)
+    (catch Throwable e
+      (fail)
+      (println "\nException:")
+      (prn e))))
 
 (defmacro expect [pred expr]
-  `(let [x# (eclj.core/eval ~expr)]
+  `(let [x# (eclj.ext/eval ~expr)]
      (pass-fail (~pred x#))
      x#))
 
 (defmacro throws [pred expr]
   `(try
-     (let [x# (eclj.core/eval ~expr)]
+     (let [x# (eclj.ext/eval ~expr)]
        (fail)
        x#)
      (catch Throwable e#
@@ -80,7 +85,7 @@
 
 (=clj '((fn [] 1)))
 (=clj '((fn [x] x) 5))
-(=clj '(apply (fn [& args] (apply + args)) (range 1000)))
+;XXX (=clj '(eclj.core/apply (fn [& args] (eclj.core/apply + args)) (range 1000)))
 
 (expect fn? '(fn []))
 (expect fn? '(fn [x] x))
@@ -90,7 +95,7 @@
 (expect fn? '(fn ([] 0) ([x] 1) ([x y] 2)))
 (expect fn? '(fn ([] 0) ([x] 1) ([x y] 2) ([x y & zs] :n)))
 
-(pass-fail (= 5 ((eclj.core/eval '(fn [x] x)) 5)))
+;(pass-fail (= 5 ((eclj.core/eval '(fn [x] x)) 5)))
 
 (expect (complement bound?) '(def declared))
 (expect bound? '(def defined 1))
@@ -107,18 +112,18 @@
 (throws (constantly true)
         '(try 1 (throw (ex-info "err" {})) 2
               (catch IllegalArgumentException e 2)))
-(pass-fail (= 3 (eclj.core/eval '(try (throw (ex-info "err" {}))
-                                      (catch Exception e 3)))))
-(pass-fail (= 3 (eclj.core/eval '(try (throw (ex-info "err" {}))
-                                      (catch :default e 3)))))
+(pass-fail (= 3 (eclj.ext/eval '(try (throw (ex-info "err" {}))
+                                     (catch Exception e 3)))))
+(pass-fail (= 3 (eclj.ext/eval '(try (throw (ex-info "err" {}))
+                                     (catch :default e 3)))))
 (expect #(instance? Exception %)
         '(try (throw (ex-info "err" {}))
               (catch :default e e)))
 (expect #(= % "2")
   (with-out-str
-    (eclj.core/eval '(try (throw (ex-info "err" {}))
-                          (catch :default e e)
-                          (finally (print 2))))))
+    (eclj.ext/eval '(try (throw (ex-info "err" {}))
+                         (catch :default e e)
+                         (finally (print 2))))))
 (throws #(= (-> % :eclj/effect :error) :non-tail-position)
         '(loop [] (inc (recur))))
 

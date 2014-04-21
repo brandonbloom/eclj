@@ -182,7 +182,7 @@
             form `(let [~params '~args] ~expr)]
         (handle-with (recur-handler f env)
                      (thunk form env*) answer))
-      (signal {:error :arity, :given argcount}))))
+      (signal {:error :arity, :f f :given argcount}))))
 
 ;TODO: defmethod -apply for symbols & keywords ?
 
@@ -331,3 +331,13 @@
           (fn [object]
             (handle (thunk meta env)
                     #(answer (with-meta object %))))))
+
+(defmethod interpret-syntax :eval-effect
+  [{:keys [expr env-expr env]}]
+  (handle (thunk expr env)
+          (fn [form]
+            (handle (thunk env-expr env)
+                    (fn [env*]
+                      (handle-with (fn [effect k] (k (answer effect)))
+                                   (thunk form env*)
+                                   identity))))))
