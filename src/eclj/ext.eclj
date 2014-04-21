@@ -10,9 +10,15 @@
 (defmacro raise [effect]
   `(eclj.ext/raise ~effect))
 
-;;XXX quasi-primitive
+(defn handle-with* [handler thunk]
+  (let [eff (eclj.eval/effect (list thunk) (ns-env))]
+    (raise (or (handler eff) eff))))
+
 (defmacro handle-with [handler & body]
-  `(eclj.ext/handle-with ~handler ~@body))
+  `(handle-with* ~handler (fn [] ~@body)))
+
+(defn continue [k x]
+  (raise (trampoline k x)))
 
 (defn eval
   "Like eclj.core/eval, but supports raising effects and accepts an optional

@@ -12,6 +12,7 @@
 (defn tail-effect? [effect]
   (-> effect :k meta :eclj/answer))
 
+;;TODO: Need a symbolic multimethod!
 (defmulti eval-head :head)
 
 (defn eval [x env]

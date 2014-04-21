@@ -59,11 +59,11 @@
   (raise (merge {:op :condition} condition)))
 
 (defn handle-with [handler effect k]
-  (let [f (partial handle-with handler)]
+  (let [rec #(handle-with handler % k)]
     (if (fn? effect)
-      #(f (effect) k)
+      #(rec (effect))
       (or (handler effect k)
-          (assoc effect :k #(f ((:k effect) %) k))))))
+          (assoc effect :k #(rec ((:k effect) %)))))))
 
 (defn default-handler [effect k]
   (when (= (:op effect) :answer)
@@ -214,11 +214,6 @@
             (let [catches* (map #(assoc %1 :class %2) catches classes)]
               (handle-with (exception-handler catches* default finally env)
                            (thunk try env) answer)))))
-
-(defmethod interpret-syntax :handle-with
-  [{:keys [handler expr env]}]
-  (handle (thunk handler env)
-          #(handle-with % (thunk expr env) answer)))
 
 (defmethod interpret-syntax :raise
   [{:keys [expr env]}]
