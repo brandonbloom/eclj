@@ -63,7 +63,7 @@
     (if (fn? effect)
       #(rec (effect))
       (or (handler effect k)
-          (assoc effect :k #(rec ((:k effect) %)))))))
+          (assoc effect :k #(rec (fn [] ((:k effect) %))))))))
 
 (defn default-handler [effect k]
   (when (= (:op effect) :answer)
