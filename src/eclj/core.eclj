@@ -1,35 +1,21 @@
-(ns eclj.core
-  (:refer-clojure :only [])
-  (:require [eclj.eval]
-            [eclj.env :as env]
-            [eclj.ns :as ns]
-            [eclj.interpret.cps :as cps]
-            [eclj.common :refer (map->Syntax)]))
+(clojure.core/in-ns 'eclj.core)
+(clojure.core/require '[eclj.env :as env])
+(clojure.core/require '[eclj.ns :as ns])
+(clojure.core/require '[eclj.common :refer (map->Syntax)])
 
 (ns/publish-vars 'clojure.core :exclude '#{
   eval case ns deftype defrecord defprotocol refer-clojure apply
 })
 
-;;XXX This ties the recursive knot for eclj.fn/fn-apply
-(alter-var-root #'eclj.eval/*evaluator* (constantly cps/interpreter))
-
-(defn eval
-  "Evaluates the form data structure (not text!) and returns the result."
-  {:added "1.0"}
-  [form]
-  (eclj.eval/result form (env/ns-env)))
-
-(defn- spread
-  [arglist]
+(defn- spread [arglist]
   (cond
-   (nil? arglist) nil
-   (nil? (next arglist)) (seq (first arglist))
-   :else (cons (first arglist) (spread (next arglist)))))
+    (nil? arglist) nil
+    (nil? (next arglist)) (seq (first arglist))
+    :else (cons (first arglist) (spread (next arglist)))))
 
 (defn apply
   "Applies fn f to the argument list formed by prepending intervening
   arguments to args."
-  {:added "1.0"}
   [f & args]
   (eval (map->Syntax {:head :apply :env (env/ns-env)
                       :f f :arg (spread args)})))
@@ -57,9 +43,9 @@
   lists are used to group multiple constants that map to the same
   expression, a vector can be used to match a list if needed. The
   test-constants need not be all of the same type."
-  {:added "1.2"}
   [e & clauses]
   (let [default? (odd? (count clauses))]
+    ;;TODO: Handle documented list behavior.
     `(eclj.core/case* ~e
        ~(->> (if default? (butlast clauses) clauses)
              (partition 2) (map vec) (into {}))
@@ -68,7 +54,6 @@
           `(throw (ex-info (str "No clause matching")
                            {:error :no-matching-clause}))))))
 
-;;TODO: Automatically refer eclj.ext where appropriate?
 (defmacro refer-clojure
   "Same as (refer 'eclj.core <filters>)"
   [& filters]
@@ -95,8 +80,7 @@
     (:use (my.lib this that))
     (:import (java.util Date Timer Random)
              (java.sql Connection Statement)))"
-  {:arglists '([name docstring? attr-map? references*])
-   :added "1.0"}
+  {:arglists '([name docstring? attr-map? references*])}
   [name & references]
   ;;TODO: gen-class
   (let [{:keys [name statements]} (ns/parse &form)]
@@ -112,7 +96,6 @@
   "Loads Clojure code from resources in classpath. A path is interpreted as
   classpath-relative if it begins with a slash or relative to the root
   directory for the current namespace otherwise."
-  {:added "1.0"}
   [& paths]
   (doseq [path paths]
     (ns/load path)))
@@ -176,8 +159,6 @@
   abbreviated as 's'.
 
   (require '(clojure zip [set :as s]))"
-  {:added "1.0"}
-
   [& args]
   (apply ns/load-libs :require args))
 
@@ -189,8 +170,8 @@
   'use accepts additional options in libspecs: :exclude, :only, :rename.
   The arguments and semantics for :exclude, :only, and :rename are the same
   as those documented for eclj.core/refer."
-  {:added "1.0"}
-  [& args] (apply ns/load-libs :require :use args))
+  [& args]
+  (apply ns/load-libs :require :use args))
 
 ;;TODO: eclj support in deftype
 (defmacro deftype
@@ -207,7 +188,7 @@
   Dynamically generates compiled bytecode for class with the given
   name, in a package with the same name as the current namespace, the
   given fields, and, optionally, methods for protocols and/or
-  interfaces. 
+  interfaces.
 
   The class will have the (by default, immutable) fields named by
   fields, which can have type hints. Protocols/interfaces and methods
@@ -383,6 +364,38 @@
         (bar-me [this] x)
         (bar-me [this y] x))))
   => 17"
-  {:added "1.2"}
   [name & opts+sigs]
   `(clojure.core/eval '~(cons 'clojure.core/defprotocol (next &form))))
+
+
+;;; EClj Extensions
+
+(defn ^:eclj ns-env []
+  (eclj.env/ns-env))
+
+;;XXX quasi-primitive
+(defmacro ^:eclj raise [effect]
+  `(eclj.core/raise ~effect))
+
+(defn ^:eclj handle-with* [handler thunk]
+  (let [eff (eclj.core/eval-effect (list thunk) (assoc (ns-env) :kernel nil))]
+    (raise (or (handler eff) eff))))
+
+(defmacro ^:eclj handle-with [handler & body]
+  `(handle-with* ~handler (fn [] ~@body)))
+
+(defn ^:eclj continue [k x]
+  (raise (trampoline k x)))
+
+
+;  require eclj.interpret.meta
+;
+;  ;;XXX evaluated at primitive after bootstrapping code?
+;  (defn eval
+;    "Evaluates the form data structure (not text!) and returns the result.
+;    Unlike clojure.core/eval, optionally accepts an environment instead of the
+;    current namespace's environment. May raise effects when called from EClj."
+;    ([form]
+;     (eval form (env/ns-env)))
+;    ([form env]
+;     (cps/interpret-result form env)))

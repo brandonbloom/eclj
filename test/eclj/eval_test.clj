@@ -1,11 +1,6 @@
 (ns eclj.eval-test
   (:refer-clojure :exclude [eval])
-  (:require [eclj.core]))
-
-;(eclj.core/require 'eclj.interpret.meta :reload)
-(alter-var-root #'eclj.eval/*evaluator*
-                (constantly eclj.interpret.cps/interpreter)
-                #_(constantly eclj.interpret.meta/evaluator))
+  (:require [eclj.boot]))
 
 ;;TODO: Better results reporting
 (defn pass [] (print ".") (flush) true)
@@ -14,7 +9,7 @@
 
 (defn =clj [x]
   (try
-    (let [ret (eclj.ext/eval x)]
+    (let [ret (eclj.core/eval x)]
       (when-not (pass-fail (= (clojure.core/eval x) ret))
         (println)
         (println (pr-str x) "evaluated to" (pr-str ret)))
@@ -25,13 +20,13 @@
       (prn e))))
 
 (defmacro expect [pred expr]
-  `(let [x# (eclj.ext/eval ~expr)]
+  `(let [x# (eclj.core/eval ~expr)]
      (pass-fail (~pred x#))
      x#))
 
 (defmacro throws [pred expr]
   `(try
-     (let [x# (eclj.ext/eval ~expr)]
+     (let [x# (eclj.core/eval ~expr)]
        (fail)
        x#)
      (catch Throwable e#
@@ -112,18 +107,18 @@
 (throws (constantly true)
         '(try 1 (throw (ex-info "err" {})) 2
               (catch IllegalArgumentException e 2)))
-(pass-fail (= 3 (eclj.ext/eval '(try (throw (ex-info "err" {}))
-                                     (catch Exception e 3)))))
-(pass-fail (= 3 (eclj.ext/eval '(try (throw (ex-info "err" {}))
-                                     (catch :default e 3)))))
+(pass-fail (= 3 (eclj.core/eval '(try (throw (ex-info "err" {}))
+                                      (catch Exception e 3)))))
+(pass-fail (= 3 (eclj.core/eval '(try (throw (ex-info "err" {}))
+                                      (catch :default e 3)))))
 (expect #(instance? Exception %)
         '(try (throw (ex-info "err" {}))
               (catch :default e e)))
 (expect #(= % "2")
   (with-out-str
-    (eclj.ext/eval '(try (throw (ex-info "err" {}))
-                         (catch :default e e)
-                         (finally (print 2))))))
+    (eclj.core/eval '(try (throw (ex-info "err" {}))
+                          (catch :default e e)
+                          (finally (print 2))))))
 (throws #(= (-> % :eclj/effect :error) :non-tail-position)
         '(loop [] (inc (recur))))
 

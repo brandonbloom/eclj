@@ -1,6 +1,6 @@
 (ns eclj.ext-test
   (:refer-clojure :exclude [eval])
-  (:require [eclj.core]))
+  (:require [eclj.boot]))
 
 (eclj.core/require 'eclj.ext :reload)
 

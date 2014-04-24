@@ -3,7 +3,6 @@
   (:require [eclj.common :refer (map->Syntax)]
             [eclj.parse :refer (parse)]
             [eclj.fn]
-            [eclj.ext :refer (handle-with raise continue)]
             [eclj.multi-fn :refer (defmulti defmethod)]))
 
 (def answer ^:eclj/answer
@@ -44,10 +43,6 @@
 
 (defn eval-effect [x env]
   (handle-with answer (eval-result x env)))
-
-(def evaluator
-  {:result eval-result
-   :effect eval-effect})
 
 ;;TODO: Implement restarts, etc.
 (defn signal [condition]

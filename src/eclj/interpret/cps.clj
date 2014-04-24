@@ -30,7 +30,7 @@
         (-apply f# [~@args])
         (f# ~@args))))
 
-(defn run [x env]
+(defn interpret-effect [x env]
   (loop [f (thunk x env)]
     (let [x (call f)]
       (if (fn? x)
@@ -46,10 +46,8 @@
     :throw (throw (:error effect))
     (throw (ex-info "Unhandled Effect" {:eclj/effect effect}))))
 
-(def interpreter
-  {:result (fn [x env]
-             (result (run x env)))
-   :effect run})
+(defn interpret-result [x env]
+  (result (interpret-effect x env)))
 
 (defn raise [action]
   (merge {:k answer} action))

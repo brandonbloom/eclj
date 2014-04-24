@@ -1,10 +1,8 @@
 (ns eclj.ns
   (:refer-clojure :exclude [load])
-  (:require [eclj.eval]
+  (:require #_[eclj.core] ; eclj.core/eval provided by eclj.boot
             [eclj.env :as env]
-            [clojure.tools.reader :as reader]
-            [clojure.tools.reader.reader-types
-             :refer (input-stream-push-back-reader indexing-push-back-reader)])
+            [eclj.reader :as reader])
   (:import [clojure.lang Compiler RT]))
 
 ;;XXX This function (especially :eclj/alias) is a dirty hack.
@@ -90,22 +88,16 @@
 
 (defn load-eclj-stream [stream path]
   (ensure-core)
-  (let [eof (Object.)
-        rdr (-> (input-stream-push-back-reader stream)
-                (indexing-push-back-reader 1 path))]
-    (with-bindings {Compiler/LOADER (RT/makeClassLoader)}
-      (loop [ret nil]
-        (let [x (eclj.eval/result (reader/read rdr false eof) (env/ns-env))]
-          (if (identical? eof x)
-            ret
-            (recur x)))))))
+  (with-bindings {Compiler/LOADER (RT/makeClassLoader)}
+    (with-open [stream stream]
+      (last (map eclj.core/eval (reader/form-seq stream path))))))
 
-(defn load-eclj-file [name]
+(defn load-eclj [name]
   (if-let [stream (RT/resourceAsStream (RT/baseLoader) name)]
     (let [path (.getPath (RT/getResource (RT/baseLoader) name))]
-      (with-open [stream stream]
-        (load-eclj-stream stream path)))
-    (throw (Exception. "Could not locate EClj resource on classpath: " name))))
+      (load-eclj-stream stream path))
+    (throw (Exception.
+             (str "Could not locate EClj resource on classpath: " name)))))
 
 (defn load* [scriptbase]
   (let [classfile (str scriptbase RT/LOADER_SUFFIX ".class")
@@ -125,7 +117,7 @@
           (throw (ex-info "Could not locate class or source file on classpath."
                          {:files (into [classfile] srcs)}))
         (.endsWith (.getPath url) ".eclj")
-          (load-eclj-file (str scriptbase ".eclj"))
+          (load-eclj (str scriptbase ".eclj"))
         :else (RT/load scriptbase)))))
 
 (defn check-cyclic-dependency
