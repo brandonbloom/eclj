@@ -5,8 +5,7 @@
 (def ^:dynamic *depth* 0)
 
 (defn fn-apply [{:keys [env] :as f} arg]
-  ;;TODO: Somehow support bypassing the boot evaluator.
-  (let [eval (resolve 'eclj.boot/eval)
+  (let [eval (resolve 'eclj.core/eval)
         syntax (map->Syntax {:head :apply :f f :arg arg :env env})
         form (list 'eclj.core/eval syntax env)]
     (binding [*depth* (inc *depth*)]

@@ -1,7 +1,7 @@
 (ns eclj.eval-test
   (:refer-clojure :exclude [eval])
   (:use [clojure.test])
-  (:require [eclj.boot]))
+  (:require [eclj.core]))
 
 (defmethod assert-expr `=clj [msg [_ form]]
   `(let [expected# (clojure.core/eval ~form)

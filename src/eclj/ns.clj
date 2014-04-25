@@ -1,6 +1,6 @@
 (ns eclj.ns
   (:refer-clojure :exclude [load])
-  (:require #_[eclj.core] ; eclj.core/eval provided by eclj.boot
+  (:require #_[eclj.core] ; eclj.core/eval provided during boot
             [eclj.env :as env]
             [eclj.reader :as reader])
   (:import [clojure.lang Compiler RT]))
