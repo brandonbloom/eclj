@@ -5,16 +5,15 @@
 (def ^:dynamic *depth* 0)
 
 (defn fn-apply [{:keys [env] :as f} arg]
-  ;; Use the evaluator that the function was defined with to prevent an
-  ;; infinite loop where eval is itself a symbolic Fn on which fn-apply runs.
-  ;;TODO: Figure out if this makes sense / if there is something better.
-  (let [eval (:eval env)
-        syntax (map->Syntax {:head :apply :f f :arg arg :env env})]
+  ;;TODO: Somehow support bypassing the boot evaluator.
+  (let [eval (resolve 'eclj.boot/eval)
+        syntax (map->Syntax {:head :apply :f f :arg arg :env env})
+        form (list 'eclj.core/eval syntax env)]
     (binding [*depth* (inc *depth*)]
       ;(println "depth: " *depth*)
-      (when (> *depth* 1)
-        (throw (Exception. "too deep")))
-      (eval syntax env))))
+      (when (> *depth* 10)
+        (throw (Exception. "fn-apply recursed too deeply")))
+      (eval form))))
 
 (defrecord Fn [name arities max-fixed-arity env]
   clojure.lang.Fn

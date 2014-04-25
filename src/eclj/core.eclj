@@ -7,6 +7,43 @@
   eval case ns deftype defrecord defprotocol refer-clojure apply
 })
 
+;;TODO: Implement restarts, etc.
+(defn signal [condition]
+  (raise (merge {:op :condition} condition)))
+
+(defn- recur-handler [f env]
+  (fn [effect]
+    (when (= (:op effect) :recur)
+      (if (tail-effect? effect)
+        (answer (eval-syntax {:head :apply :f f :arg (:args effect) :env env}))
+        (signal {:error :non-tail-position})))))
+
+(defn apply* [f args] ;TODO: Open dispatch
+  (cond
+
+    (instance? eclj.fn.Fn f)
+    (let [{:keys [name arities max-fixed-arity env]} f
+            argcount (count (if (counted? args)
+                              args
+                              (take max-fixed-arity args)))
+            {:keys [params expr]} (arities (min argcount max-fixed-arity))
+            ;;TODO: port arity checking code from cps interpreter.
+            env* (if name (assoc-in env [:locals name] f) env)
+            ;;TODO: Don't generate form, destructure to env & use AST directly.
+            form `(let [~params '~args] ~expr)]
+        (handle-with (recur-handler f env)
+          (eval form env*)))
+
+    (instance? clojure.lang.Var f)
+    (apply* (raise {:op :deref :ref f}) args)
+
+    (instance? clojure.lang.IFn f)
+    (raise {:op :invoke :f f :args args})
+
+    :else (signal {:error :not-callable :f f :args args})
+
+    ))
+
 (defn- spread [arglist]
   (cond
     (nil? arglist) nil
@@ -17,8 +54,7 @@
   "Applies fn f to the argument list formed by prepending intervening
   arguments to args."
   [f & args]
-  (eval (map->Syntax {:head :apply :env (env/ns-env)
-                      :f f :arg (spread args)})))
+  (apply* f (spread args)))
 
 (defmacro case
   "Takes an expression, and a set of clauses.
@@ -388,14 +424,17 @@
   (raise (trampoline k x)))
 
 
-;  require eclj.interpret.meta
-;
-;  ;;XXX evaluated at primitive after bootstrapping code?
-;  (defn eval
-;    "Evaluates the form data structure (not text!) and returns the result.
-;    Unlike clojure.core/eval, optionally accepts an environment instead of the
-;    current namespace's environment. May raise effects when called from EClj."
-;    ([form]
-;     (eval form (env/ns-env)))
-;    ([form env]
-;     (cps/interpret-result form env)))
+(comment ;XXX
+
+(require 'eclj.interpret.meta :reload)
+
+(defn eval
+  "Evaluates the form data structure (not text!) and returns the result.
+  Unlike clojure.core/eval, optionally accepts an environment instead of the
+  current namespace's environment. May raise effects when called from EClj."
+  ([form]
+   (eval form (env/ns-env)))
+  ([form env]
+   (eclj.interpret.meta/eval-result form env)))
+
+)

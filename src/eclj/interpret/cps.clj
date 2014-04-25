@@ -160,9 +160,9 @@
   (fn [effect k]
     (case (:op effect)
       :answer #(k (:value effect))
-      ::recur (if (tail-effect? effect)
-                (thunk-syntax {:head :apply :f f :arg (:args effect) :env env})
-                (signal {:error :non-tail-position}))
+      :recur (if (tail-effect? effect)
+               (thunk-syntax {:head :apply :f f :arg (:args effect) :env env})
+               (signal {:error :non-tail-position}))
       nil)))
 
 (defmethod -apply eclj.fn.Fn
@@ -309,7 +309,7 @@
 (defmethod interpret-syntax :recur
   [{:keys [args env]}]
   (handle (interpret-items args env)
-          #(raise {:op ::recur :args %})))
+          #(raise {:op :recur :args %})))
 
 (defmethod interpret-syntax :import
   [{:keys [sym]}]

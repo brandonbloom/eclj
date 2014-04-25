@@ -16,17 +16,17 @@
 (defmulti eval-head :head)
 
 (defn eval [x env]
+  ;(println "eval")
+  ;(fipp.edn/pprint x)
   (eval-head (parse x env)))
 
 (defn eval-syntax [syntax]
   (eval (map->Syntax syntax) (:env syntax)))
 
-(declare -apply) ;XXX (defmulti -apply (fn [f arg] (class f)))
-
 (defn kernel-handler [kernel]
   (fn [{:keys [op k] :as effect}]
-    (println "kernel effect!")
-    (fipp.edn/pprint (dissoc effect :k))
+    (println "kernel effect!" op (:sym effect))
+    ;(fipp.edn/pprint (dissoc effect :k))
     ;(println "--")
     (if-let [f (get kernel op)]
       (do
@@ -38,15 +38,10 @@
       effect)))
 
 (defn eval-result [x env]
+  (println "eval-result")
+  (fipp.edn/pprint x)
   (handle-with (kernel-handler (:kernel env))
     (eval x env)))
-
-(defn eval-effect [x env]
-  (handle-with answer (eval-result x env)))
-
-;;TODO: Implement restarts, etc.
-(defn signal [condition]
-  (raise (merge {:op :condition} condition)))
 
 (defn lookup [{:keys [locals] :as env} sym]
   (if-let [[_ value] (find locals sym)]
@@ -106,38 +101,6 @@
                     :bindings (vec bindings*) :expr expr}))
     (eval expr env)))
 
-(defn recur-handler [f env]
-  (fn [effect]
-    (when (= (:op effect) ::recur)
-      (if (tail-effect? effect)
-        (answer (eval-syntax {:head :apply :f f :arg (:args effect) :env env}))
-        (signal {:error :non-tail-position})))))
-
-(defn -apply [f arg]
-  (cond
-
-    (instance? eclj.fn.Fn f)
-    (let [{:keys [name arities max-fixed-arity env]} f
-            argcount (count (if (counted? args)
-                              args
-                              (take max-fixed-arity args)))
-            {:keys [params expr]} (arities (min argcount max-fixed-arity))
-            ;;TODO: port arity checking code from cps interpreter.
-            env* (if name (assoc-in env [:locals name] f) env)
-            ;;TODO: Don't generate form, destructure to env & use AST directly.
-            form `(let [~params '~args] ~expr)]
-        (handle-with (recur-handler f env) (eval form env*)))
-
-    (instance? clojure.lang.Var f)
-    (-apply (raise {:op :deref :ref f}) arg)
-
-    (instance? clojure.lang.IFn f)
-    (raise {:op :invoke :f f :args arg})
-
-    :else (signal {:error :not-callable :f f :args arg})
-
-    ))
-
 (defmethod eval-head :letfn
   [{:keys [bindings expr env]}]
   (eval expr (update-in env [:locals] merge bindings)))
@@ -173,13 +136,9 @@
   [{:keys [expr env]}]
   (raise (eval expr env)))
 
-(defmethod eval-head :apply
-  [{:keys [f arg]}]
-  (-apply f arg))
-
 (defn apply-args [f args env]
   (let [values (eval-items (reverse args) env)]
-    (eval-syntax {:head :apply :f f :arg values :env env})))
+    (apply f values)))
 
 (defmethod eval-head :invoke
   [{:keys [f args env form]}]
@@ -194,8 +153,7 @@
 ;;TODO: Replace expand special with Applicable Macro type?
 (defmethod eval-head :expand
   [{:keys [macro form env]}]
-  (let [expanded (eval-syntax {:head :apply :env env
-                               :f macro :arg (list* form env (next form))})]
+  (let [expanded (apply macro (list* form env (next form)))]
     (eval expanded env)))
 
 (defmethod eval-head :new
@@ -249,7 +207,7 @@
 (defmethod eval-head :recur
   [{:keys [args env]}]
   (let [args (eval-items args env)]
-    (raise {:op ::recur :args args})))
+    (raise {:op :recur :args args})))
 
 (defmethod eval-head :import
   [{:keys [sym]}]
