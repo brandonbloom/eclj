@@ -7,7 +7,8 @@
   `(let [expected# (clojure.core/eval ~form)
          actual# (eclj.core/eval ~form)]
      (do-report {:type (if (= expected# actual#) :pass :fail)
-                 :message ~msg :expected expected# :actual actual#})))
+                 :message ~msg :expected expected# :actual actual#})
+     actual#))
 
 (defmacro =clj [expr]
   `(is (=clj ~expr)))
@@ -19,7 +20,8 @@
        (do-report {:type :fail :message ~msg :expected '~check :actual nil})
        (catch Throwable ~'e
          (do-report {:type (if ~check :pass :fail)
-                     :message ~msg :expected '~check :actual ~'e})))))
+                     :message ~msg :expected '~check :actual ~'e})
+         ~'e))))
 
 (defmacro throws [pred expr]
   `(is (throws ~pred ~expr)))
