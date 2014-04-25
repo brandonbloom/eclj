@@ -1,37 +1,33 @@
 (ns eclj.eval-test
   (:refer-clojure :exclude [eval])
+  (:use [clojure.test])
   (:require [eclj.boot]))
 
-;;TODO: Better results reporting
-(defn pass [] (print ".") (flush) true)
-(defn fail [] (print "X") (flush) false)
-(defn pass-fail [x] (if x (pass) (fail)))
+(defmethod assert-expr `=clj [msg [_ form]]
+  `(let [expected# (clojure.core/eval ~form)
+         actual# (eclj.core/eval ~form)]
+     (do-report {:type (if (= expected# actual#) :pass :fail)
+                 :message ~msg :expected expected# :actual actual#})))
 
-(defn =clj [x]
-  (try
-    (let [ret (eclj.core/eval x)]
-      (when-not (pass-fail (= (clojure.core/eval x) ret))
-        (println)
-        (println (pr-str x) "evaluated to" (pr-str ret)))
-      ret)
-    (catch Throwable e
-      (fail)
-      (println "\nException:")
-      (prn e))))
+(defmacro =clj [expr]
+  `(is (=clj ~expr)))
 
-(defmacro expect [pred expr]
-  `(let [x# (eclj.core/eval ~expr)]
-     (pass-fail (~pred x#))
-     x#))
+(defmethod assert-expr `throws [msg [_ pred expr]]
+  (let [check `(~pred (ex-data ~'e))]
+    `(try
+       (eclj.core/eval ~expr)
+       (do-report {:type :fail :message ~msg :expected '~check :actual nil})
+       (catch Throwable ~'e
+         (do-report {:type (if ~check :pass :fail)
+                     :message ~msg :expected '~check :actual ~'e})))))
 
 (defmacro throws [pred expr]
-  `(try
-     (let [x# (eclj.core/eval ~expr)]
-       (fail)
-       x#)
-     (catch Throwable e#
-       (pass-fail (~pred (ex-data e#)))
-       e#)))
+  `(is (throws ~pred ~expr)))
+
+(defmacro expect [pred expr]
+  `(is (~pred (eclj.core/eval ~expr))))
+
+(deftest eval-test
 
 (=clj 5)
 (=clj true)
@@ -90,7 +86,7 @@
 (expect fn? '(fn ([] 0) ([x] 1) ([x y] 2)))
 (expect fn? '(fn ([] 0) ([x] 1) ([x y] 2) ([x y & zs] :n)))
 
-;(pass-fail (= 5 ((eclj.core/eval '(fn [x] x)) 5)))
+(is (= 5 ((eclj.core/eval '(fn [x] x)) 5)))
 
 (expect (complement bound?) '(def declared))
 (expect bound? '(def defined 1))
@@ -107,10 +103,10 @@
 (throws (constantly true)
         '(try 1 (throw (ex-info "err" {})) 2
               (catch IllegalArgumentException e 2)))
-(pass-fail (= 3 (eclj.core/eval '(try (throw (ex-info "err" {}))
-                                      (catch Exception e 3)))))
-(pass-fail (= 3 (eclj.core/eval '(try (throw (ex-info "err" {}))
-                                      (catch :default e 3)))))
+(is (= 3 (eclj.core/eval '(try (throw (ex-info "err" {}))
+                               (catch Exception e 3)))))
+(is (= 3 (eclj.core/eval '(try (throw (ex-info "err" {}))
+                               (catch :default e 3)))))
 (expect #(instance? Exception %)
         '(try (throw (ex-info "err" {}))
               (catch :default e e)))
@@ -229,5 +225,7 @@
 
   (eval 'foo.Bar)
   (eval '(import 'foo.Bar))
+
+)
 
 )
