@@ -102,8 +102,14 @@
     (.importClass *ns* (clojure.lang.RT/classForName (name sym))))
 
   :reify
-  (fn [{:keys [interfaces methods]}]
-    (eval `(reify* ~interfaces ~@methods)))
+  (fn [{:keys [interfaces methods env]}]
+    (clojure.core/eval
+      `(reify* ~interfaces
+         ~@(for [[name args & body] methods
+                 :let [expr `'(do ~@body)
+                       denv `(-> ~env ~@(for [arg args]
+                                          `(assoc-in [:locals '~arg] ~arg)))]]
+             (list name args `(eclj.core/eval ~expr ~denv))))))
 
 })
 
