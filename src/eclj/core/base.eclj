@@ -1,3 +1,5 @@
+(in-ns 'eclj.core)
+
 ;;TODO: Implement restarts, etc.
 (defn signal [condition]
   (raise (merge {:op :condition} condition)))

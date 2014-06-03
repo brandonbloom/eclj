@@ -99,3 +99,4 @@
   (clojure.core/apply ns/load-libs :require :use args))
 
 (eclj.ns/load-eclj "eclj/core/base.eclj")
+(eclj.ns/load-eclj "eclj/core/deftype.eclj")

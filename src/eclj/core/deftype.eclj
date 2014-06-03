@@ -1,0 +1,6 @@
+(in-ns 'eclj.core)
+
+(defn namespace-munge
+  "Convert a Clojure namespace name to a legal Java package name."
+  [ns]
+  (.replace (str ns) \- \_))
