@@ -339,3 +339,7 @@
                       (handle-with (fn [effect k] (k (answer effect)))
                                    (thunk form env*)
                                    identity))))))
+
+(defmethod interpret-syntax :reify
+  [{:keys [interfaces methods env]}]
+  (raise {:op :reify :env env :interfaces interfaces :methods methods}))

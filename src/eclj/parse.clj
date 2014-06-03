@@ -260,7 +260,10 @@
   {:head :raise :form form :env env :expr expr})
 
 (defmethod parse-seq 'eclj.core/eval-effect
-  [[_ expr env-expr] env]
-  {:head :eval-effect :expr expr :env-expr env-expr :env env})
+  [[_ expr env-expr :as form] env]
+  {:head :eval-effect :expr expr :env-expr env-expr :fom form :env env})
 
-;TODO: reify et al (note: reified objects may have metadata)
+(defmethod parse-seq 'reify*
+  [[_ interfaces & methods :as form] env]
+  {:head :reify :form form :env env
+   :interfaces interfaces :methods methods})

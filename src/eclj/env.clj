@@ -101,6 +101,10 @@
   (fn [{:keys [sym]}]
     (.importClass *ns* (clojure.lang.RT/classForName (name sym))))
 
+  :reify
+  (fn [{:keys [interfaces methods]}]
+    (eval `(reify* ~interfaces ~@methods)))
+
 })
 
 (defn ns-env
