@@ -100,3 +100,4 @@
 
 (eclj.ns/load-eclj "eclj/core/base.eclj")
 (eclj.ns/load-eclj "eclj/core/deftype.eclj")
+(eclj.ns/load-eclj "eclj/core/protocols.eclj")

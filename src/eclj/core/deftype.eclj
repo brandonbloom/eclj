@@ -5,8 +5,6 @@
   [ns]
   (.replace (str ns) \- \_))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;; reify/deftype ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (defn- parse-opts [s]
   (loop [opts {} [k v & rs :as s] s]
     (if (keyword? k)
@@ -434,4 +432,3 @@
        (import ~classname)
        ~(build-positional-factory gname classname fields)
        ~classname)))
-
