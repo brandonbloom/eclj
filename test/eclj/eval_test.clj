@@ -79,6 +79,8 @@
 (=clj '((fn [] 1)))
 (=clj '((fn [x] x) 5))
 ;XXX (=clj '(eclj.core/apply (fn [& args] (eclj.core/apply + args)) (range 1000)))
+(=clj '(clojure.core/apply (fn [x] x) 'a []))
+(=clj '(eclj.core/apply (fn [x] x) 'a []))
 
 (expect fn? '(fn []))
 (expect fn? '(fn [x] x))

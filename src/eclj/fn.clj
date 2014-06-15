@@ -7,7 +7,7 @@
 (defn fn-apply [{:keys [env] :as f} arg]
   (let [eval (resolve 'eclj.core/eval)
         syntax (map->Syntax {:head :apply :f f :arg arg :env env})
-        form (list 'eclj.core/eval syntax env)]
+        form (list 'eclj.core/eval (list 'quote syntax) env)]
     (binding [*depth* (inc *depth*)]
       ;(println "depth: " *depth*)
       (when (> *depth* 10)
