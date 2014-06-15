@@ -2,11 +2,11 @@
   (:refer-clojure :exclude [eval])
   (:require [eclj.core]))
 
-(eclj.core/require 'eclj.ext :reload)
-
 ;;TODO: Assertions
 
 (comment
+
+  (eclj.core/require 'eclj.ext :reload)
 
   (eclj.ext/eval 1)
   (eclj.ext/eval '(+ 2 4))

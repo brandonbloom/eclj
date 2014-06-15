@@ -4,7 +4,7 @@
 
 (defn ! [x]
   (-> (parse x (ns-env))
-      fipp.edn/pprint))
+      #_fipp.edn/pprint))
 
 ;;TODO: assertions
 
