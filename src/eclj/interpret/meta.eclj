@@ -38,8 +38,6 @@
       effect)))
 
 (defn eval-result [x env]
-  (println "eval-result")
-  (fipp.edn/pprint x)
   (handle-with (kernel-handler (:kernel env))
     (eval x env)))
 

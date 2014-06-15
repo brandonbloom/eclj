@@ -19,14 +19,30 @@ abstract interpreter and extensible JIT compiler. See [Lancet][2].
 
 ## Status
 
-The interpreter is self-applicable, but still highly experimental!
+Experimental!
 
-Most of the special forms are implemented, but forms related to types cheat a
-bit. Specifically, `deftype`, `defprotocol`, and `defrecord` delegate to the
-Clojure compiler. This enables interop, but prevents extended functionality in
-method bodies; that restriction will be lifted eventually. The only planned
-special form not yet functioning is `reify`. That leaves just `monitor-enter`
-and `monitor-exit`, which are unlikely to be implemented soon.
+The base interpreter is written in a trampolined continuation-passing style. It
+is complete enough to be self-applicable. There is also a meta-circular
+interpreter written in a direct style, utilizing constant space tail calls and
+the effect system. This meta-interpreter is *highly* experimental and will form
+the foundation of the forthcoming JIT compiler.
+
+Caveats pertaining to several special forms follow.
+
+### reify, deftype, defrecord
+
+Type defining forms delegate to the Clojure compiler to create the JVM type,
+but methods are interpreted by EClj. Effects cannot (currently) propegate
+across JVM method call boundaries.
+
+### defprotocol
+
+The `defprotocol` form is directly proxied to the Clojure compiler. This is
+going to change soon, so much more will be written about the implications then.
+
+### monitor-enter, monitor-exit
+
+These are not implemented and probably won't be.
 
 
 ## Usage

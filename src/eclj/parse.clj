@@ -267,3 +267,9 @@
   [[_ interfaces & methods :as form] env]
   {:head :reify :form form :env env
    :interfaces interfaces :methods methods})
+
+;;XXX This naive parsing assumes no deftype options & only internal usage.
+(defmethod parse-seq 'deftype*
+  [[_ tagname classname fields _ implements & methods :as form] env]
+  {:head :deftype :form form :env env :tagname tagname :classname classname
+   :fields fields :implements implements :methods methods})

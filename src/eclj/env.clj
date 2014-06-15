@@ -35,6 +35,13 @@
     (catch ClassNotFoundException e
       nil)))
 
+(defn rewrite-methods [methods env]
+  (for [[name args & body] methods
+        :let [expr `'(do ~@body)
+              denv `(-> ~env ~@(for [arg args]
+                                 `(assoc-in [:locals '~arg] ~arg)))]]
+    (list name args `(eclj.core/eval ~expr ~denv))))
+
 ;;TODO: Namespaced keys?
 (def kernel {
 
@@ -102,14 +109,14 @@
     (.importClass *ns* (clojure.lang.RT/classForName (name sym))))
 
   :reify
-  (fn [{:keys [interfaces methods env]}]
-    (clojure.core/eval
-      `(reify* ~interfaces
-         ~@(for [[name args & body] methods
-                 :let [expr `'(do ~@body)
-                       denv `(-> ~env ~@(for [arg args]
-                                          `(assoc-in [:locals '~arg] ~arg)))]]
-             (list name args `(eclj.core/eval ~expr ~denv))))))
+  (fn [{:keys [env interfaces methods]}]
+    (clojure.core/eval `(reify* ~interfaces ~@(rewrite-methods methods env))))
+
+  :deftype
+  (fn [{:keys [env tagname classname fields implements methods] :as op}]
+    (clojure.core/eval `(deftype* ~tagname ~classname ~fields
+                                  :implements ~implements
+                                  ~@(rewrite-methods methods env))))
 
 })
 

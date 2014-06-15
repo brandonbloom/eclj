@@ -341,5 +341,10 @@
                                    identity))))))
 
 (defmethod interpret-syntax :reify
-  [{:keys [interfaces methods env]}]
+  [{:keys [env interfaces methods]}]
   (raise {:op :reify :env env :interfaces interfaces :methods methods}))
+
+(defmethod interpret-syntax :deftype
+  [{:keys [env tagname classname fields implements methods]}]
+  (raise {:op :deftype :env env :tagname tagname :classname classname
+          :fields fields :implements implements :methods methods}))
