@@ -27,22 +27,16 @@ interpreter written in a direct style, utilizing constant space tail calls and
 the effect system. This meta-interpreter is *highly* experimental and will form
 the foundation of the forthcoming JIT compiler.
 
-Caveats pertaining to several special forms follow.
+### Regarding Types
 
-### reify, deftype, defrecord
+Type defining forms (`reify`, `deftype`, and `defrecord`) delegate to the
+Clojure compiler to create the JVM type, but methods are interpreted by EClj.
+Effects cannot (currently) propegate across JVM method call boundaries.
 
-Type defining forms delegate to the Clojure compiler to create the JVM type,
-but methods are interpreted by EClj. Effects cannot (currently) propegate
-across JVM method call boundaries.
+### Not In Scope
 
-### defprotocol
-
-The `defprotocol` form is directly proxied to the Clojure compiler. This is
-going to change soon, so much more will be written about the implications then.
-
-### monitor-enter, monitor-exit
-
-These are not implemented and probably won't be.
+* monitor-enter
+* monitor-exit
 
 
 ## Usage

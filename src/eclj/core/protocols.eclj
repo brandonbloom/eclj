@@ -4,7 +4,7 @@
   (if (.map cache)
     (let [cs (assoc (.map cache) c (clojure.lang.MethodImplCache$Entry. c f))]
       (clojure.lang.MethodImplCache. (.protocol cache) (.methodk cache) cs))
-    (let [cs (into1 {} (remove (fn [[c e]] (nil? e)) (map vec (partition 2 (.table cache)))))
+    (let [cs (into {} (remove (fn [[c e]] (nil? e)) (map vec (partition 2 (.table cache)))))
           cs (assoc cs c (clojure.lang.MethodImplCache$Entry. c f))]
       (if-let [[shift mask] (maybe-min-hash (map hash (keys cs)))]
         (let [table (make-array Object (* 2 (inc mask)))
@@ -67,24 +67,26 @@
   [protocol x]
   (boolean (find-protocol-impl protocol x)))
 
-(defn -cache-protocol-fn [^clojure.lang.AFunction pf x ^Class c ^clojure.lang.IFn interf]
-  (let [cache  (.__methodImplCache pf)
-        f (if (.isInstance c x)
+(defn -cache-protocol-fn [cache x ^Class cls ^clojure.lang.IFn interf]
+  (let [che @cache
+        f (if (.isInstance cls x)
             interf
-            (find-protocol-method (.protocol cache) (.methodk cache) x))]
+            (find-protocol-method (.protocol che) (.methodk che) x))]
     (when-not f
-      (throw (IllegalArgumentException. (str "No implementation of method: " (.methodk cache)
-                                             " of protocol: " (:var (.protocol cache))
+      (throw (IllegalArgumentException. (str "No implementation of method: " (.methodk che)
+                                             " of protocol: " (:var (.protocol che))
                                              " found for class: " (if (nil? x) "nil" (.getName (class x)))))))
-    (set! (.__methodImplCache pf) (expand-method-impl-cache cache (class x) f))
+    (swap! cache expand-method-impl-cache (class x) f)
     f))
 
 (defn- emit-method-builder [on-interface method on-method arglists]
   (let [methodk (keyword method)
-        gthis (with-meta (gensym) {:tag 'clojure.lang.AFunction})
-        ginterf (gensym)]
+        gthis (gensym)
+        ginterf (gensym)
+        gcache (gensym)]
     `(fn [cache#]
-       (let [~ginterf
+       (let [gcache (atom cache#)
+             ~ginterf
              (fn
                ~@(map
                   (fn [args]
@@ -93,20 +95,18 @@
                       `([~@gargs]
                           (. ~(with-meta target {:tag on-interface}) (~(or on-method method) ~@(rest gargs))))))
                   arglists))
-             ^clojure.lang.AFunction f#
+             f#
              (fn ~gthis
                ~@(map
-                  (fn [args]
-                    (let [gargs (map #(gensym (str "gf__" % "__")) args)
-                          target (first gargs)]
-                      `([~@gargs]
-                          (let [cache# (.__methodImplCache ~gthis)
-                                f# (.fnFor cache# (clojure.lang.Util/classOf ~target))]
-                            (if f#
-                              (f# ~@gargs)
-                              ((-cache-protocol-fn ~gthis ~target ~on-interface ~ginterf) ~@gargs))))))
-                  arglists))]
-         (set! (.__methodImplCache f#) cache#)
+                   (fn [args]
+                     (let [gargs (map #(gensym (str "gf__" % "__")) args)
+                           target (first gargs)]
+                       `([~@gargs]
+                         (let [f# (.fnFor @gcache (clojure.lang.Util/classOf ~target))]
+                           (if f#
+                             (f# ~@gargs)
+                             ((-cache-protocol-fn gcache ~target ~on-interface ~ginterf) ~@gargs))))))
+                   arglists))]
          f#))))
 
 (defn -reset-methods [protocol]
