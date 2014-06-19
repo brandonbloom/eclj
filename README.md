@@ -31,7 +31,7 @@ the foundation of the forthcoming JIT compiler.
 
 Type defining forms (`reify`, `deftype`, and `defrecord`) delegate to the
 Clojure compiler to create the JVM type, but methods are interpreted by EClj.
-Effects cannot (currently) propegate across JVM method call boundaries.
+Effects cannot (currently) propagate across JVM method call boundaries.
 
 ### Not In Scope
 
