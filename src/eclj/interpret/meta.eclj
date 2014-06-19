@@ -162,9 +162,13 @@
 
 (defmethod eval-head :interop
   [{:keys [target member args env]}]
-  (let [object (eval target env)
+  (let [resolved (when (symbol? target) (lookup env target))
+        [static? object] (if (and resolved (= (:origin resolved) :host))
+                           [true (:value resolved)]
+                           [false (eval target env)])
         args* (eval-items (vec args) env)]
-    (raise {:op :interop :object object :member member :args args*})))
+    (raise {:op :interop :static? static?
+            :object object :member member :args args*})))
 
 (defn eval-meta [x env]
   (with-meta x (eval (meta x) env)))

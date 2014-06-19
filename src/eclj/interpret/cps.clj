@@ -254,13 +254,20 @@
 
 (defmethod interpret-syntax :interop
   [{:keys [target member args env]}]
-  (handle (thunk target env)
-          (fn [object]
-            (handle (interpret-items (vec args) env)
-                    #(raise {:op :interop
-                             :object object
-                             :member member
-                             :args %})))))
+  (let [interop (fn [static? object]
+                  (handle (interpret-items (vec args) env)
+                          #(raise {:op :interop :static? static?
+                                   :object object :member member :args %})))
+        instance-invoke (fn []
+                          (handle (thunk target env)
+                                  #(interop false %)))]
+    (if (symbol? target)
+      (handle (lookup env target)
+              (fn [{:keys [origin value] :as resolved}]
+                (if (= origin :host)
+                  (interop true value)
+                  (instance-invoke))))
+      (instance-invoke))))
 
 (defn interpret-meta [x env]
   (handle (thunk (meta x) env)

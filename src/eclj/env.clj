@@ -82,12 +82,12 @@
     (Reflector/invokeConstructor class (object-array args)))
 
   :interop
-  (fn [{:keys [object member args]}]
+  (fn [{:keys [static? object member args]}]
     (let [s (str member)
           s (if (.startsWith s "-")
               (apply str (next s))
               s)]
-      (if (instance? Class object)
+      (if static?
         (apply static-invoke object s args)
         (if (zero? (count args))
           (Reflector/invokeNoArgInstanceMember object s)
