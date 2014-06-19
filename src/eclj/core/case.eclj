@@ -1,0 +1,52 @@
+(in-ns 'eclj.core)
+
+(defn- shift-mask [shift mask x]
+  (-> x (bit-shift-right shift) (bit-and mask)))
+
+(def ^:private max-mask-bits 13)
+
+(defn- maybe-min-hash
+  "takes a collection of hashes and returns [shift mask] or nil if none found"
+  [hashes]
+  (first
+    (filter (fn [[s m]]
+              (apply distinct? (map #(shift-mask s m %) hashes)))
+            (for [mask (map #(dec (bit-shift-left 1 %))
+                            (range 1 (inc max-mask-bits)))
+                  shift (range 0 31)]
+              [shift mask]))))
+
+;;TODO: Implement efficent case compilation.
+(defmacro case
+  "Takes an expression, and a set of clauses.
+
+  Each clause can take the form of either:
+
+  test-constant result-expr
+
+  (test-constant1 ... test-constantN)  result-expr
+
+  The test-constants are not evaluated. They must be compile-time
+  literals, and need not be quoted.  If the expression is equal to a
+  test-constant, the corresponding result-expr is returned. A single
+  default expression can follow the clauses, and its value will be
+  returned if no clause matches. If no default expression is provided
+  and no clause matches, an IllegalArgumentException is thrown.
+
+  Unlike cond and condp, case does a constant-time dispatch, the
+  clauses are not considered sequentially.  All manner of constant
+  expressions are acceptable in case, including numbers, strings,
+  symbols, keywords, and (Clojure) composites thereof. Note that since
+  lists are used to group multiple constants that map to the same
+  expression, a vector can be used to match a list if needed. The
+  test-constants need not be all of the same type."
+  [e & clauses]
+  (let [default? (odd? (count clauses))]
+    ;;TODO: Handle documented list behavior.
+    `(eclj.core/case* ~e
+       ~(->> (if default? (butlast clauses) clauses)
+             (partition 2) (map vec) (into {}))
+       ~(if default?
+          (last clauses)
+          `(throw (ex-info (str "No clause matching")
+                           {:error :no-matching-clause}))))))
