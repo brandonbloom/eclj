@@ -102,3 +102,4 @@
 (eclj.ns/load-eclj "eclj/core/case.eclj")
 (eclj.ns/load-eclj "eclj/core/deftype.eclj")
 (eclj.ns/load-eclj "eclj/core/defprotocol.eclj")
+(eclj.ns/load-eclj "eclj/core/protocols.eclj")

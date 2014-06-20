@@ -128,11 +128,12 @@
 (defn- emit-protocol [name opts+sigs]
   (let [iname (symbol (str (munge (namespace-munge *ns*)) "." (munge name)))
         [opts sigs]
-        (loop [opts {:on (list 'quote iname) :on-interface iname} sigs opts+sigs]
+        (loop [opts {:on-interface iname} sigs opts+sigs]
           (condp #(%1 %2) (first sigs)
             string? (recur (assoc opts :doc (first sigs)) (next sigs))
             keyword? (recur (assoc opts (first sigs) (second sigs)) (nnext sigs))
             [opts sigs]))
+        opts (assoc opts :on (list 'quote (:on-interface opts)))
         sigs (when sigs
                (reduce (fn [m s]
                          (let [name-meta (meta (first s))
@@ -159,7 +160,8 @@
                       (vals sigs))]
   `(do
      (defonce ~name {})
-     (gen-interface :name ~iname :methods ~meths)
+     ~(when (= iname (:on-interface opts))
+        `(gen-interface :name ~iname :methods ~meths))
      (alter-meta! (var ~name) assoc :doc ~(:doc opts))
      ~(when sigs
         `(#'assert-same-protocol (var ~name) '~(map :name (vals sigs))))

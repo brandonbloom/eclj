@@ -1,0 +1,243 @@
+(in-ns 'eclj.core)
+
+(defprotocol Fn
+  :on-interface clojure.lang.Fn
+  "Marker interface indicating invokeables that are explictly functions")
+
+(defprotocol IFn
+  :on-interface clojure.lang.IFn
+  (^{:on :invoke} -invoke
+    [this]
+    [this a]
+    [this a b]
+    [this a b c]
+    [this a b c d]
+    [this a b c d e]
+    [this a b c d e f]
+    [this a b c d e f g]
+    [this a b c d e f g h]
+    [this a b c d e f g h i]
+    [this a b c d e f g h i j]
+    [this a b c d e f g h i j k]
+    [this a b c d e f g h i j k l]
+    [this a b c d e f g h i j k l m]
+    [this a b c d e f g h i j k l m n]
+    [this a b c d e f g h i j k l m n o]
+    [this a b c d e f g h i j k l m n o p]
+    [this a b c d e f g h i j k l m n o p q]
+    [this a b c d e f g h i j k l m n o p q s]
+    [this a b c d e f g h i j k l m n o p q s t]
+    [this a b c d e f g h i j k l m n o p q s t u]
+    [this a b c d e f g h i j k l m n o p q s t u rest]))
+
+(defprotocol ICounted
+  :on-interface clojure.lang.Counted
+  (^{:on :count} -count [coll]))
+
+(defprotocol IEmptyableCollection
+  :on-interface clojure.lang.IPersistentCollection
+  (^{:on :empty} -empty [coll]))
+
+(defprotocol ICollection
+  :on-interface clojure.lang.IPersistentCollection
+  (^{:on :cons} -conj [coll o])
+  ;XXX clojure.lang.IPersistentCollection#equiv
+  )
+
+(defprotocol ASeq) ;XXX on-interface
+
+(defprotocol ISeq
+  :on-interface clojure.lang.ISeq
+  (^{:on :first} -first [coll])
+  (^{:on :more} -rest [coll]))
+
+(defprotocol INext
+  :on-interface clojure.lang.ISeq
+  (^{:on :next} -next [coll]))
+
+(defprotocol ILookup
+  :on-interface clojure.lang.ILookup
+  (^{:on :valAt} -lookup [o k] [o k not-found]))
+
+(defprotocol IAssociative
+  :on-interface clojure.lang.Associative
+  (^{:on :containsKey} -contains-key? [coll k])
+  (^{:on :entryAt} -entry-at [coll k])
+  (^{:on :assoc} -assoc [coll k v]))
+
+(defprotocol IMap
+  :on-interface clojure.lang.IPersistentMap
+  ;XXX (^{:on :assocEx} ...) unused variant that throws for duplicate keys
+  (^{:on :without} -dissoc [coll k]))
+
+(defprotocol IMapEntry
+  :on-interface clojure.lang.IMapEntry
+  (^{:on :key} -key [coll])
+  (^{:on :val} -val [coll]))
+
+(defprotocol ISet
+  :on-interface clojure.lang.IPersistentSet
+  (^{:on :disjoin} -disjoin [coll v])
+  ;XXX clojure.lang.IPersistentSet#contains
+  ;XXX clojure.lang.IPersistentSet#get
+  )
+
+(defprotocol IStack
+  :on-interface clojure.lang.IPersistentStack
+  (^{:on :peek} -peek [coll])
+  (^{:on :pop} -pop [coll]))
+
+(defprotocol IVector
+  :on-interface clojure.lang.IPersistentVector
+  (^{:on :assocN} -assoc-n [coll n val])
+  ;XXX (^{:on :length} ...) unused count alias
+  )
+
+(defprotocol IDeref
+  :on-interface clojure.lang.IDeref
+  (^{:on :deref} -deref [o]))
+
+(defprotocol IDerefWithTimeout
+  :on-interface clojure.lang.IBlockingDeref
+  (^{:on :deref} -deref-with-timeout [o msec timeout-val]))
+
+(defprotocol IMeta
+  :on-interface clojure.lang.IMeta
+  (^{:on :meta} -meta [o]))
+
+(defprotocol IWithMeta
+  :on-interface clojure.lang.IObj
+  (^{:on :withMeta} -with-meta [o meta]))
+
+;XXX clojure.lang.IReduce is unused
+;XXX clojure.lang.protocols.InternalReduce is legacy
+
+(defprotocol IReduce
+  :on-interface clojure.core.protocols.CollReduce
+  (^{:on :reduce} -reduce [coll f] [coll f start]))
+
+(defprotocol IKVReduce
+  :on-interface clojure.core.protocols.IKVReduce
+  (^{:on :kv-reduce} -kv-reduce [coll f init]))
+
+(defprotocol IEquiv
+  ;XXX java.lang.Object#equals & clojure.lang.IPersistentCollection#equiv
+  (-equiv [o other]))
+
+(defprotocol IHash
+  ;XXX java.lang.Object#hashCode
+  :on-interface clojure.lang.IHashEq
+  (^{:on :hasheq} -hash [o]))
+
+(defprotocol ISeqable
+  :on-interface clojure.lang.Seqable
+  (^{:on :seq} -seq [o]))
+
+(defprotocol ISequential
+  :on-interface clojure.lang.Sequential
+  "Marker interface indicating a persistent collection of sequential items")
+
+(defprotocol IList
+  :on-interface clojure.lang.IPersistentList
+  "Marker interface indicating a persistent list")
+
+(defprotocol IRecord
+  :on-interface clojure.lang.IRecord
+  "Marker interface indicating a record object")
+
+(defprotocol IReversible
+  :on-interface clojure.lang.Reversible
+  (^{:on :rseq} -rseq [coll]))
+
+(defprotocol ISorted
+  :on-interface clojure.lang.Sorted
+  (^{:on :seq} -sorted-seq [coll ascending?])
+  (^{:on :seqFrom} -sorted-seq-from [coll k ascending?])
+  (^{:on :entryKey} -entry-key [coll entry])
+  (^{:on :comparator} -comparator [coll]))
+
+;TODO: Integration with print-method and/or java.io.Writer?
+;(defprotocol IWriter
+;  (-write [writer s])
+;  (-flush [writer]))
+;
+;(defprotocol IPrintWithWriter
+;  (-pr-writer [o writer opts]))
+
+(defprotocol IPending
+  :on-interface clojure.lang.IPending
+  (^{:on :isRealized} -realized? [d]))
+
+(defprotocol IWatchable
+  :on-interface clojure.lang.IRef
+  (-notify-watches [this oldval newval]) ;XXX getWatches
+  (^{:on :addWatch} -add-watch [this key f])
+  (^{:on :removeWatch} -remove-watch [this key]))
+
+(defprotocol IEditableCollection
+  :on-interface clojure.lang.IEditableCollection
+  (^{:on :asTransient} -as-transient [coll]))
+
+(defprotocol ITransientCollection
+  :on-interface clojure.lang.ITransientCollection
+  (^{:on :conj} -conj! [tcoll val])
+  (^{:on :persistent} -persistent! [tcoll]))
+
+(defprotocol ITransientAssociative
+  :on-interface clojure.lang.ITransientAssociative
+  (^{:on :assoc} -assoc! [tcoll key val]))
+
+(defprotocol ITransientMap
+  :on-interface clojure.lang.ITransientMap
+  (^{:on :without} -dissoc! [tcoll key]))
+
+(defprotocol ITransientVector
+  :on-interface clojure.lang.ITransientVector
+  (^{:on :assocN} -assoc-n! [tcoll n val])
+  (^{:on :pop} -pop! [tcoll]))
+
+(defprotocol ITransientSet
+  :on-interface clojure.lang.ITransientSet
+  (^{:on :disjoin} -disjoin! [tcoll v])
+  ;XXX clojure.lang.ITransientSet#contains
+  ;XXX clojure.lang.ITransientSet#get
+  )
+
+(defprotocol IComparable
+  :on-interface java.lang.Comparable
+  (^{:on :compareTo} -compare [x y]))
+
+(defprotocol IChunk
+  :on-interface clojure.lang.IChunk
+  (^{:on :dropFirst} -drop-first [coll]))
+
+(defprotocol IChunkedSeq
+  :on-interface clojure.lang.IChunkedSeq
+  (^{:on :chunkedFirst} -chunked-first [coll])
+  (^{:on :chunkedMore} -chunked-rest [coll]))
+
+(defprotocol IChunkedNext
+  :on-interface clojure.lang.IChunkedSeq
+  (^{:on :chunkedNext} -chunked-next [coll]))
+
+(defprotocol INamed
+  :on-interface clojure.lang.Named
+  (^{:on :getName} -name [x])
+  (^{:on :getNamespace} -namespace [x]))
+
+(defprotocol IAtom) ;XXX on-interface
+
+(defprotocol IReset ;XXX on-interface
+  (-reset! [o new-value]))
+
+(defprotocol ISwap ;XXX on-interface
+  (-swap! [o f] [o f a] [o f a b] [o f a b xs]))
+
+(defprotocol IMultiFn ;XXX on-interface
+  (-reset [mf])
+  (-add-method [mf dispatch-val method])
+  (-remove-method [mf dispatch-val])
+  (-prefer-method [mf dispatch-val dispatch-val-y])
+  (-get-method [mf dispatch-val])
+  (-methods [mf])
+  (-prefers [mf]))
