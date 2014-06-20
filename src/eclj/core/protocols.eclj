@@ -120,8 +120,11 @@
   :on-interface clojure.core.protocols.IKVReduce
   (^{:on :kv-reduce} -kv-reduce [coll f init]))
 
+;XXX java.lang.Object#equals
+;XXX clojure.lang.IPersistentCollection#equiv
+;XXX clojure.lang.MapEquivalence marker
+
 (defprotocol IEquiv
-  ;XXX java.lang.Object#equals & clojure.lang.IPersistentCollection#equiv
   (-equiv [o other]))
 
 (defprotocol IHash
@@ -225,13 +228,19 @@
   (^{:on :getName} -name [x])
   (^{:on :getNamespace} -namespace [x]))
 
+;XXX ISymbol
+;XXX IKeyword
+
 (defprotocol IAtom) ;XXX on-interface
 
 (defprotocol IReset ;XXX on-interface
   (-reset! [o new-value]))
 
 (defprotocol ISwap ;XXX on-interface
-  (-swap! [o f] [o f a] [o f a b] [o f a b xs]))
+  (-swap! [o f] [o f a] [o f a b] [o f a b xs])) ;XXX which arglists?
+
+;XXX IRef
+;XXX IAgent
 
 (defprotocol IMultiFn ;XXX on-interface
   (-reset [mf])
