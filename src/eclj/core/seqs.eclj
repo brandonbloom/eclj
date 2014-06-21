@@ -1,7 +1,7 @@
 (in-ns 'eclj.core)
 
-;; These test instance? since the protocol machinery needs the seq abstraction.
-;;TODO: Figure out how to bootstrap this correctly.
+;; seq/first/next/rest test instance? since the protocol machinery uses the
+;; seq abstraction. TODO: Figure out how to bootstrap this correctly.
 
 (defn seq [coll]
   "Returns a seq on the collection. If the collection is
@@ -39,3 +39,29 @@
     (if (instance? clojure.lang.ISeq coll)
       (.rest s)
       (-rest s))))
+
+
+(defn second
+  "Same as (first (next x))"
+  [x]
+  (first (next x)))
+
+(defn ffirst
+  "Same as (first (first x))"
+  [x]
+  (first (first x)))
+
+(defn nfirst
+  "Same as (next (first x))"
+  [x]
+  (next (first x)))
+
+(defn fnext
+ "Same as (first (next x))"
+  [x]
+  (first (next x)))
+
+(defn nnext
+  "Same as (next (next x))"
+  [x]
+  (next (next x)))
