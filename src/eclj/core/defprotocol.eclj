@@ -92,7 +92,7 @@
         ginterf (gensym)
         gcache (gensym)]
     `(fn [cache#]
-       (let [gcache (atom cache#)
+       (let [~gcache (atom cache#)
              ~ginterf
              (fn
                ~@(map
@@ -109,10 +109,10 @@
                      (let [gargs (map #(gensym (str "gf__" % "__")) args)
                            target (first gargs)]
                        `([~@gargs]
-                         (let [f# (.fnFor @gcache (clojure.lang.Util/classOf ~target))]
+                         (let [f# (.fnFor @~gcache (clojure.lang.Util/classOf ~target))]
                            (if f#
                              (f# ~@gargs)
-                             ((-cache-protocol-fn gcache ~target ~on-interface ~ginterf) ~@gargs))))))
+                             ((-cache-protocol-fn ~gcache ~target ~on-interface ~ginterf) ~@gargs))))))
                    arglists))]
          f#))))
 
