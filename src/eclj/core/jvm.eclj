@@ -1,0 +1,37 @@
+(in-ns 'eclj.core)
+
+(extend-type nil
+
+  ISeqable
+  (-seq [o] nil)
+
+  ISeq
+  (-first [o] nil)
+  (-rest [o] ())
+
+  INext
+  (-next [o] nil)
+
+)
+
+(extend-protocol ISeqable
+
+  java.lang.Iterable
+  (-seq [o]
+    (clojure.lang.IteratorSeq/create (.iterator o)))
+
+  java.lang.CharSequence
+  (-seq [o]
+    (clojure.lang.StringSeq/create o))
+
+  java.util.Map
+  (-seq [o]
+    (seq (.entrySet o)))
+
+  )
+
+; ArraySeq and the various primitive specializations have private constructors.
+(doseq [name '["[Ljava.lang.Object;" "[I" "[F" "[D" "[J" "[B" "[C" "[S" "[Z"]]
+  (extend (java.lang.Class/forName name)
+    ISeqable
+    {:-seq clojure.core/seq}))

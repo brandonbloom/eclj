@@ -1,0 +1,41 @@
+(in-ns 'eclj.core)
+
+;; These test instance? since the protocol machinery needs the seq abstraction.
+;;TODO: Figure out how to bootstrap this correctly.
+
+(defn seq [coll]
+  "Returns a seq on the collection. If the collection is
+  empty, returns nil.  (seq nil) returns nil. seq also works on
+  Strings, native Java arrays (of reference types) and any objects
+  that implement Iterable."
+  (cond
+    (instance? clojure.lang.ISeq coll) coll
+    (satisfies? ISeq coll) coll
+    :else (-seq coll)))
+
+(defn first
+  "Returns the first item in the collection. Calls seq on its
+  argument. If coll is nil, returns nil."
+  [coll]
+  (let [s (seq coll)]
+    (if (instance? clojure.lang.ISeq coll)
+      (.first s)
+      (-first s))))
+
+(defn next
+  "Returns a seq of the items after the first. Calls seq on its
+  argument.  If there are no more items, returns nil."
+  [coll]
+  (let [s (seq coll)]
+    (if (instance? clojure.lang.ISeq coll)
+      (.next s)
+      (-next s))))
+
+(defn rest
+  "Returns a possibly empty seq of the items after the first. Calls seq on its
+  argument."
+  [coll]
+  (let [s (seq coll)]
+    (if (instance? clojure.lang.ISeq coll)
+      (.rest s)
+      (-rest s))))

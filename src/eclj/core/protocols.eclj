@@ -44,7 +44,7 @@
   ;XXX clojure.lang.IPersistentCollection#equiv
   )
 
-(defprotocol ASeq) ;XXX on-interface
+;XXX clojure.lang.ASeq
 
 (defprotocol ISeq
   :on-interface clojure.lang.ISeq
