@@ -6,8 +6,10 @@
       (clojure.lang.MethodImplCache. (.protocol cache) (.methodk cache) cs))
     (let [cs (into {} (remove (fn [[c e]] (nil? e)) (map vec (partition 2 (.table cache)))))
           cs (assoc cs c (clojure.lang.MethodImplCache$Entry. c f))]
-      (if-let [[shift mask] (maybe-min-hash (map hash (keys cs)))]
-        (let [table (make-array Object (* 2 (inc mask)))
+      (if-let [min-hash (#'clojure.core/maybe-min-hash (map hash (keys cs)))]
+        (let [shift (clojure.core/first min-hash)
+              mask (clojure.core/second min-hash)
+              table (make-array Object (* 2 (inc mask)))
               table (reduce (fn [^objects t [c e]]
                               (let [i (* 2 (int (shift-mask shift mask (hash c))))]
                                 (aset t i c)
@@ -40,7 +42,7 @@
     (let [c (class x)
           impl #(get (:impls protocol) %)]
       (or (impl c)
-          (and c (or (first (remove nil? (map impl (butlast (super-chain c)))))
+          (and c (or (clojure.core/first (remove nil? (map impl (butlast (super-chain c)))))
                      (when-let [t (reduce pref (filter impl (disj (supers c) Object)))]
                        (impl t))
                      (impl Object)))))))
@@ -370,16 +372,16 @@
   expands into:
 
   (do
-   (clojure.core/extend-type AType Protocol
+   (eclj.core/extend-type AType Protocol
      (foo [x] ...)
      (bar [x y] ...))
-   (clojure.core/extend-type BType Protocol
+   (eclj.core/extend-type BType Protocol
      (foo [x] ...)
      (bar [x y] ...))
-   (clojure.core/extend-type AClass Protocol
+   (eclj.core/extend-type AClass Protocol
      (foo [x] ...)
      (bar [x y] ...))
-   (clojure.core/extend-type nil Protocol
+   (eclj.core/extend-type nil Protocol
      (foo [x] ...)
      (bar [x y] ...)))"
   {:added "1.2"}
