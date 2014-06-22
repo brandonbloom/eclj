@@ -14,3 +14,15 @@
         (throw (IllegalArgumentException.
                 "assoc expects even number of arguments after map/vector, found odd number")))
       ret)))
+
+(defn dissoc
+  "dissoc[iate]. Returns a new map of the same (hashed/sorted) type,
+  that does not contain a mapping for key(s)."
+  [map & ks]
+  (reduce -dissoc map ks))
+
+(defn disj
+  "disj[oin]. Returns a new set of the same (hashed/sorted) type, that
+  does not contain key(s)."
+  [set & ks]
+  (reduce -disjoin set ks))

@@ -17,6 +17,12 @@
   (-contains-key? [coll k] false)
   (-assoc [coll k v] {k v})
 
+  IMap
+  (-dissoc [coll x] nil)
+
+  ISet
+  (-disjoin [coll x] nil)
+
 )
 
 (extend-protocol ISeqable
