@@ -65,6 +65,7 @@
 (defn expand-dot [[head & tail :as form] env]
   (let [s (str head)]
     (cond
+      (= s "..") nil ;XXX Special cases the `..` macro, but could be others.
       (.endsWith s ".") (let [class (symbol (apply str (butlast s)))]
                           {:head :new :form form :env env
                            :class class :args (vec tail)})
