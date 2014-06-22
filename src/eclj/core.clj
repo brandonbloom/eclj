@@ -111,3 +111,4 @@
 (eclj.ns/load-eclj "eclj/core/maps.eclj")
 (eclj.ns/load-eclj "eclj/core/strs.eclj")
 (eclj.ns/load-eclj "eclj/core/names.eclj")
+(eclj.ns/load-eclj "eclj/core/flow.eclj")
