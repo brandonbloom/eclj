@@ -170,10 +170,9 @@
   (let [argcount (count (if (counted? args)
                           args
                           (take max-fixed-arity args)))
-        arity (if (:variadic? (arities max-fixed-arity))
-                (min argcount max-fixed-arity)
-                argcount)
-        {:keys [params expr] :as method} (arities arity)]
+        {:keys [params expr] :as method} (or (arities argcount)
+                                             (and (>= argcount max-fixed-arity)
+                                                  (arities :more)))]
     (if method
       (let [env* (if name (assoc-in env [:locals name] f) env)
             ;;TODO: Don't generate form, destructure to env & use AST directly.

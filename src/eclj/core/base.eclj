@@ -19,7 +19,9 @@
             argcount (count (if (counted? args)
                               args
                               (take max-fixed-arity args)))
-            {:keys [params expr]} (arities (min argcount max-fixed-arity))
+            {:keys [params expr]} (or (arities argcount)
+                                      (and (>= argcount max-fixed-arity)
+                                           (arities :more)))
             ;;TODO: port arity checking code from cps interpreter.
             env* (if name (assoc-in env [:locals name] f) env)
             ;;TODO: Don't generate form, destructure to env & use AST directly.
@@ -90,7 +92,7 @@
 (.setMacro #'eclj.core/ns)
 
 
-(defn ^{:private true}
+(defn ^:private
   maybe-destructured
   [params body]
   (if (every? symbol? params)

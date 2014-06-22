@@ -119,10 +119,11 @@
 (defn parse-method [params body]
   ;;TODO: validate signature.
   (let [[fixed [_ varargs]] (split-with (complement '#{&}) params)]
-    {:fixed-arity (count fixed)
-     :variadic? (boolean varargs)
-     :params params
-     :expr (implicit-do body)}))
+    [(if varargs :more (count fixed))
+     {:fixed-arity (count fixed)
+      :variadic? (boolean varargs)
+      :params params
+      :expr (implicit-do body)}]))
 
 (defn parse-fn [[_ & fn-tail] env]
   ;;TODO: validate methods.
@@ -132,10 +133,12 @@
         methods (for [[sig & body] (if (vector? (first impl))
                                      (list impl)
                                      impl)]
-                  (parse-method sig body))]
+                  (parse-method sig body))
+        arities (into {} methods)]
     (map->Fn {:name name :env env
-              :arities (into {} (map (juxt :fixed-arity identity) methods))
-              :max-fixed-arity (apply max (map :fixed-arity methods))})))
+              :arities arities
+              :max-fixed-arity (apply max (for [[_ m] arities]
+                                            (:fixed-arity m)))})))
 
 (defmethod parse-seq 'fn*
   [form env]
