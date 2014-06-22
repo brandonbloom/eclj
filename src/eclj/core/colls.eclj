@@ -1,5 +1,10 @@
 (in-ns 'eclj.core)
 
+(defn coll?
+  "Returns true if x is not nil and satisfies ICollection"
+  [x]
+  (and (some? x) (satisfies? ICollection x)))
+
 (defn map?
   "Return true if x is not nil and satisfies IMap"
   [x]
@@ -56,3 +61,9 @@
   "Returns an empty collection of the same category as coll, or nil"
   [coll]
   (-empty coll))
+
+(defn empty?
+  "Returns true if coll has no items - same as (not (seq coll)).
+  Please use the idiom (seq x) rather than (not (empty? x))"
+  [coll]
+  (not (seq coll)))
