@@ -3,8 +3,7 @@
 (defn seq?
   "Return true if x not nil and satisfies ISeq"
   [x]
-  (and (not (nil? x))
-       (satisfies? ISeq x)))
+  (and (some? x) (satisfies? ISeq x)))
 
 (defn chunked-seq?
   "Return true if x satisfies IChunkedSeq"
