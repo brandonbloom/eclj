@@ -1,0 +1,31 @@
+(in-ns 'eclj.core)
+
+(defn vector?
+  "Return true if x is not nil and satisfies IVector"
+  [x]
+  (and (some? x) (satisfies? IVector x)))
+
+(defn vector
+  "Creates a new vector containing the args."
+  [& args]
+  (clojure.lang.PersistentVector/create (sequence args)))
+
+(defn vec
+  "Creates a new vector containing the contents of coll."
+  [coll]
+  (clojure.lang.PersistentVector/create coll))
+
+(defn subvec
+  "Returns a persistent vector of the items in vector from
+  start (inclusive) to end (exclusive).  If end is not supplied,
+  defaults to (count vector). This operation is O(1) and very fast, as
+  the resulting vector shares structure with the original and no
+  trimming is done."
+  ([v start]
+   (subvec v start (count v)))
+  ([v start end]
+   (when-not (<= 0 start end (count v))
+     (throw (java.lang.IndexOutOfBoundsException.)))
+   (if (= start end)
+     []
+     (clojure.lang.APersistentVector$SubVector. nil v start end))))
