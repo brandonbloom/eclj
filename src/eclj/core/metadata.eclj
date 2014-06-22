@@ -1,0 +1,19 @@
+(in-ns 'eclj.core)
+
+(defn meta
+  "Returns the metadata of obj, returns nil if there is no metadata."
+  [x]
+  (when (satisfies? IMeta x)
+    (-meta x)))
+
+(defn with-meta
+  "Returns an object of the same type and value as obj,
+  with map m as its metadata."
+  [x m]
+  (-with-meta x m))
+
+(defn vary-meta
+  "Returns an object of the same type and value as obj, with
+  (apply f (meta obj) args) as its metadata."
+  [obj f & args]
+  (with-meta obj (apply f (meta obj) args)))
