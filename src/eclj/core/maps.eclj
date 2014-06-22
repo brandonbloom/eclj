@@ -26,3 +26,13 @@
   does not contain key(s)."
   [set & ks]
   (reduce -disjoin set ks))
+
+(defn key
+  "Returns the key of the map entry."
+  [e]
+  (-key e))
+
+(defn val
+  "Returns the value in the map entry."
+  [e]
+  (-val e))
