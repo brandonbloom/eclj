@@ -1,0 +1,59 @@
+(in-ns 'eclj.core)
+
+(defn ifn?
+  "Returns true if x satisfies IFn. Note that many data structures
+  (e.g. sets and maps) satify IFn"
+  [x]
+  (satisfies? IFn x))
+
+(defn fn?
+  "Returns true if x is marked with IFn, i.e. is an object created via fn."
+  [x]
+  (satisfies? Fn x))
+
+(defn identity
+  "Returns its argument."
+  [x]
+  x)
+
+(defn constantly
+  "Returns a function that takes any number of arguments and returns x."
+  [x]
+  (fn [& args] x))
+
+(defn comp
+  "Takes a set of functions and returns a fn that is the composition of those
+  fns.  The returned fn takes a variable number of args, applies the rightmost
+  of fns to the args, the next fn (right-to-left) to the result, etc."
+  ([] identity)
+  ([& fs]
+   (let [[f & fs] (reverse fs)]
+     (fn [& args]
+       (reduce (fn [x g] (g x))
+               (apply f args)
+               fs)))))
+
+(defn juxt
+  "Takes a set of functions and returns a fn that is the juxtaposition
+  of those fns.  The returned fn takes a variable number of args, and
+  returns a vector containing the result of applying each fn to the
+  args (left-to-right).
+  ((juxt a b c) x) => [(a x) (b x) (c x)]"
+  [& fns]
+  (fn [& args]
+    (mapv #(apply % args) fns)))
+
+(defn partial
+  "Takes a function f and fewer than the normal arguments to f, and
+  returns a fn that takes a variable number of additional args. When
+  called, the returned function calls f with args + additional args."
+  [f & args]
+  (fn [& xs]
+    (apply f (concat args xs))))
+
+(defn complement
+  "Takes a fn f and returns a fn that takes the same arguments as f,
+  has the same effects, if any, and returns the opposite truth value."
+  [f]
+  (fn [& args]
+    (not (apply f args))))

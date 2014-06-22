@@ -109,6 +109,7 @@
 (eclj.ns/load-eclj "eclj/core/seqs.eclj")
 (eclj.ns/load-eclj "eclj/core/colls.eclj")
 (eclj.ns/load-eclj "eclj/core/maps.eclj")
+(eclj.ns/load-eclj "eclj/core/fns.eclj")
 (eclj.ns/load-eclj "eclj/core/strs.eclj")
 (eclj.ns/load-eclj "eclj/core/names.eclj")
 (eclj.ns/load-eclj "eclj/core/flow.eclj")
