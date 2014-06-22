@@ -1,5 +1,8 @@
 (in-ns 'eclj.core)
 
+(defn- shift-mask [shift mask x]
+  (-> x (bit-shift-right shift) (bit-and mask)))
+
 (defn- expand-method-impl-cache [^clojure.lang.MethodImplCache cache c f]
   (if (.map cache)
     (let [cs (clojure.core/assoc (.map cache) c (clojure.lang.MethodImplCache$Entry. c f))]
@@ -42,8 +45,8 @@
     (let [c (class x)
           impl #(get (:impls protocol) %)]
       (or (impl c)
-          (and c (or (clojure.core/first (remove nil? (map impl (butlast (super-chain c)))))
-                     (when-let [t (reduce pref (filter impl (disj (supers c) Object)))]
+          (and c (or (clojure.core/first (remove nil? (map impl (clojure.core/butlast (super-chain c)))))
+                     (when-let [t (clojure.core/reduce pref (filter impl (clojure.core/disj (supers c) Object)))]
                        (impl t))
                      (impl Object)))))))
 

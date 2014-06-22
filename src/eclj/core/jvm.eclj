@@ -17,6 +17,16 @@
   (-contains-key? [coll k] false)
   (-assoc [coll k v] {k v})
 
+  IStack
+  (-peek [coll] nil)
+  (-pop [coll] nil)
+
+  ICollection
+  (-conj [coll x] (list x))
+
+  IEmptyableCollection
+  (-empty [coll] nil)
+
   IMap
   (-dissoc [coll x] nil)
 

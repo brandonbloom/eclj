@@ -62,3 +62,32 @@
   "Same as (next (next x))"
   [x]
   (next (next x)))
+
+(defn last
+  "Return the last item in coll, in linear time"
+  [s]
+  (if (next s)
+    (recur (next s))
+    (first s)))
+
+(defn butlast
+  "Return a seq of all but the last item in coll, in linear time"
+  [s]
+  (loop [ret [] s s]
+    (if (next s)
+      (recur (conj ret (first s)) (next s))
+      (seq ret))))
+
+(defn peek
+  "For a list or queue, same as first, for a vector, same as, but much
+  more efficient than, last. If the collection is empty, returns nil."
+  [coll]
+  (-peek coll))
+
+(defn pop
+  "For a list or queue, returns a new list/queue without the first
+  item, for a vector, returns a new vector without the last item. If
+  the collection is empty, throws an exception.  Note - not the same
+  as next/butlast."
+  [coll]
+  (-pop coll))
