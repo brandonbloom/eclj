@@ -1,14 +1,49 @@
 (in-ns 'eclj.core)
 
 (defn map?
-  "Return true if x satisfies IMap"
+  "Return true if x is not nil and satisfies IMap"
   [x]
-  (satisfies? IMap x))
+  (and (some? x) (satisfies? IMap x)))
 
 (defn vector?
-  "Return true if x satisfies IVector"
+  "Return true if x is not nil and satisfies IVector"
   [x]
-  (satisfies? IVector x))
+  (and (some? x) (satisfies? IVector x)))
+
+(defn list?
+  "Returns true if x is not nil and satisfies IList"
+  [x]
+  (and (some? x) (satisfies? IList x)))
+
+(defn set?
+  "Returns true if x is not nil and satisfies ISet"
+  [x]
+  (and (some? x) (satisfies? ISet x)))
+
+(defn associative?
+  "Returns true if x is not nil and satisfies IAssociative"
+  [x]
+  (and (some? x) (satisfies? IAssociative x)))
+
+(defn sequential?
+  "Returns true if x is not nil and satisfies ISequential"
+  [x]
+  (and (some? x) (satisfies? ISequential x)))
+
+(defn sorted?
+  "Returns true if x is not nil and satisfies ISorted"
+  [x]
+  (and (some? x) (satisfies? ISorted x)))
+
+(defn counted?
+  "Returns true if x is not nil and implements count in constant time"
+  [x]
+  (and (some? x) (satisfies? ICounted x)))
+
+(defn reversible?
+  "Returns true if x is not nil and satisfies IReversible"
+  [x]
+  (and (some? x) (satisfies? IReversible x)))
 
 (defn conj
   "conj[oin]. Returns a new collection with the xs 'added'. (conj nil item)
@@ -16,3 +51,8 @@
   on the concrete type."
   [coll & xs]
   (reduce -conj coll xs))
+
+(defn empty
+  "Returns an empty collection of the same category as coll, or nil"
+  [coll]
+  (-empty coll))

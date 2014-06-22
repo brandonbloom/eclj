@@ -1,0 +1,21 @@
+(in-ns 'eclj.core)
+
+(defn false?
+  "Returns true if x is the value false, false otherwise."
+  [x]
+  (identical? x false))
+
+(defn true?
+  "Returns true if x is the value true, false otherwise."
+  [x]
+  (identical? x true))
+
+(defn not
+  "Returns true if x is logical false, false otherwise."
+  [x]
+  (if x false true))
+
+(defn some?
+  "Returns true if x is not nil, false otherwise."
+  [x]
+  (not (nil? x)))
