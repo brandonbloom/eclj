@@ -90,3 +90,10 @@
   as next/butlast."
   [coll]
   (-pop coll))
+
+(defn cons
+  "Returns a new seq where x is the first element and coll is the rest."
+  [x coll]
+  (if coll
+    (clojure.lang.Cons. x (seq coll))
+    (list x)))

@@ -1,5 +1,10 @@
 (in-ns 'eclj.core)
 
+(defn nil?
+  "Returns true if x is nil, false otherwise."
+  [x]
+  (identical? x nil))
+
 (defn false?
   "Returns true if x is the value false, false otherwise."
   [x]

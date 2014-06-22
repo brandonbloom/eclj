@@ -1,0 +1,11 @@
+(in-ns 'eclj.core)
+
+(defn char?
+  "Return true if x is a Character"
+  [x]
+  (instance? java.lang.Character x))
+
+(defn string?
+  "Return true if x is a String"
+  [x]
+  (instance? java.lang.String x))

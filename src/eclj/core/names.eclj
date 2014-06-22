@@ -1,0 +1,21 @@
+(in-ns 'eclj.core)
+
+(defn symbol?
+  "Return true if x is a Symbol"
+  [x]
+  (instance? clojure.lang.Symbol x))
+
+(defn keyword?
+  "Return true if x is a Keyword"
+  [x]
+  (instance? clojure.lang.Keyword x))
+
+(defn name
+  "Returns the name String of a string, symbol or keyword."
+  [x]
+  (-name x))
+
+(defn namespace
+  "Returns the namespace String of a symbol or keyword, or nil if not present."
+  [x]
+  (-namespace x))

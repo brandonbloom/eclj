@@ -1,5 +1,11 @@
 (in-ns 'eclj.core)
 
+(defn instance?
+  "Evaluates x and tests if it is an instance of the class c. Returns
+  true or false"
+  [^java.lang.Class c x]
+  (.isInstance c x))
+
 (extend-type nil
 
   ISeqable
@@ -110,3 +116,11 @@
   )
 
 (def lookup-sentinel (java.lang.Object.))
+
+(extend-protocol INamed
+
+  java.lang.String
+  (-name [x] x)
+  (-namespace [x] nil)
+
+  )
