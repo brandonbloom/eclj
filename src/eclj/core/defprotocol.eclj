@@ -1,27 +1,5 @@
 (in-ns 'eclj.core)
 
-(defn- shift-mask [shift mask x]
-  (-> x (bit-shift-right shift) (bit-and mask)))
-
-(defn- expand-method-impl-cache [^clojure.lang.MethodImplCache cache c f]
-  (if (.map cache)
-    (let [cs (clojure.core/assoc (.map cache) c (clojure.lang.MethodImplCache$Entry. c f))]
-      (clojure.lang.MethodImplCache. (.protocol cache) (.methodk cache) cs))
-    (let [cs (into {} (remove (fn [[c e]] (nil? e)) (map vec (partition 2 (.table cache)))))
-          cs (clojure.core/assoc cs c (clojure.lang.MethodImplCache$Entry. c f))]
-      (if-let [min-hash (#'clojure.core/maybe-min-hash (map hash (clojure.core/keys cs)))]
-        (let [shift (clojure.core/first min-hash)
-              mask (clojure.core/second min-hash)
-              table (make-array Object (* 2 (inc mask)))
-              table (reduce (fn [^objects t [c e]]
-                              (let [i (* 2 (int (shift-mask shift mask (hash c))))]
-                                (aset t i c)
-                                (aset t (inc i) e)
-                                t))
-                            table cs)]
-          (clojure.lang.MethodImplCache. (.protocol cache) (.methodk cache) shift mask table))
-        (clojure.lang.MethodImplCache. (.protocol cache) (.methodk cache) cs)))))
-
 (defn- super-chain [^Class c]
   (if (.isArray c) ;XXX EClj extension
     (let [^Class ctype (.getComponentType c)]
@@ -85,7 +63,7 @@
       (throw (IllegalArgumentException. (str "No implementation of method: " (.methodk che)
                                              " of protocol: " (:var (.protocol che))
                                              " found for class: " (if (nil? x) "nil" (.getName (class x)))))))
-    (swap! cache expand-method-impl-cache (class x) f)
+    (swap! cache #'clojure.core/expand-method-impl-cache (class x) f)
     f))
 
 (defn- emit-method-builder [on-interface method on-method arglists]
