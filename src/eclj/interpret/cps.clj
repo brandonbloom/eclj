@@ -169,7 +169,7 @@
   [{:keys [name arities max-fixed-arity env] :as f} args]
   (let [argcount (count (if (counted? args)
                           args
-                          (take max-fixed-arity args)))
+                          (take (inc max-fixed-arity) args)))
         {:keys [params expr] :as method} (or (arities argcount)
                                              (and (>= argcount max-fixed-arity)
                                                   (arities :more)))]
@@ -236,7 +236,7 @@
     (handle (thunk f env)
             #(apply-args % args env))))
 
-;;TODO: Replace expand special with Applicable Macro type?
+;;TODO: Replace expand special with -apply on a macro type.
 (defmethod interpret-syntax :expand
   [{:keys [macro form env]}]
   (handle (thunk-syntax {:head :apply :env env :f macro

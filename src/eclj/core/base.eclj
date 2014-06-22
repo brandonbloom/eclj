@@ -18,7 +18,7 @@
     (let [{:keys [name arities max-fixed-arity env]} f
             argcount (count (if (counted? args)
                               args
-                              (take max-fixed-arity args)))
+                              (take (inc max-fixed-arity) args)))
             {:keys [params expr]} (or (arities argcount)
                                       (and (>= argcount max-fixed-arity)
                                            (arities :more)))
