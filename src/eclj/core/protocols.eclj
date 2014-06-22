@@ -78,8 +78,8 @@
 (defprotocol ISet
   :on-interface clojure.lang.IPersistentSet
   (^{:on :disjoin} -disjoin [coll v])
-  ;XXX clojure.lang.IPersistentSet#contains
-  ;XXX clojure.lang.IPersistentSet#get
+  ;XXX (^{:on :contains} -contains [coll k])
+  ;XXX (^{:on :get} [coll k])
   )
 
 (defprotocol IStack

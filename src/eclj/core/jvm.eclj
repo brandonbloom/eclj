@@ -98,3 +98,15 @@
        not-found)))
 
   )
+
+(extend-protocol IMapEntry
+
+  clojure.lang.IPersistentVector
+  (-key [coll]
+    (nth coll 0))
+  (-val [coll]
+    (nth coll 1))
+
+  )
+
+(def lookup-sentinel (java.lang.Object.))
