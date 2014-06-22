@@ -97,3 +97,9 @@
   (if coll
     (clojure.lang.Cons. x (seq coll))
     (list x)))
+
+(defn rseq
+  "Returns, in constant time, a seq of the items in rev (which can be a vector
+  or sorted-map), in reverse order. If rev is empty returns nil"
+  [rev]
+  (-rseq rev))

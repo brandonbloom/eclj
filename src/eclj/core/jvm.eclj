@@ -6,6 +6,11 @@
   [^java.lang.Class c x]
   (.isInstance c x))
 
+(defn cast
+  "Throws a ClassCastException if x is not a c, else returns x."
+  [^java.lang.Class c x]
+  (.cast c x))
+
 (extend-type nil
 
   ISeqable
