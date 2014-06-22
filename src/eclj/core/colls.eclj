@@ -1,0 +1,18 @@
+(in-ns 'eclj.core)
+
+(defn map?
+  "Return true if x satisfies IMap"
+  [x]
+  (satisfies? IMap x))
+
+(defn vector?
+  "Return true if x satisfies IVector"
+  [x]
+  (satisfies? IVector x))
+
+(defn conj
+  "conj[oin]. Returns a new collection with the xs 'added'. (conj nil item)
+  returns (item).  The 'addition' may happen at different 'places' depending
+  on the concrete type."
+  [coll & xs]
+  (reduce -conj coll xs))

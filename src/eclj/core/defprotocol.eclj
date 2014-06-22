@@ -2,10 +2,10 @@
 
 (defn- expand-method-impl-cache [^clojure.lang.MethodImplCache cache c f]
   (if (.map cache)
-    (let [cs (assoc (.map cache) c (clojure.lang.MethodImplCache$Entry. c f))]
+    (let [cs (clojure.core/assoc (.map cache) c (clojure.lang.MethodImplCache$Entry. c f))]
       (clojure.lang.MethodImplCache. (.protocol cache) (.methodk cache) cs))
     (let [cs (into {} (remove (fn [[c e]] (nil? e)) (map vec (partition 2 (.table cache)))))
-          cs (assoc cs c (clojure.lang.MethodImplCache$Entry. c f))]
+          cs (clojure.core/assoc cs c (clojure.lang.MethodImplCache$Entry. c f))]
       (if-let [min-hash (#'clojure.core/maybe-min-hash (map hash (keys cs)))]
         (let [shift (clojure.core/first min-hash)
               mask (clojure.core/second min-hash)

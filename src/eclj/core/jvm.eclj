@@ -12,6 +12,11 @@
   INext
   (-next [o] nil)
 
+  IAssociative
+  (-entry-at [coll k] nil)
+  (-contains-key? [coll k] false)
+  (-assoc [coll k v] {k v})
+
 )
 
 (extend-protocol ISeqable

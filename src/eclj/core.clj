@@ -105,3 +105,5 @@
 (eclj.ns/load-eclj "eclj/core/protocols.eclj")
 (eclj.ns/load-eclj "eclj/core/jvm.eclj")
 (eclj.ns/load-eclj "eclj/core/seqs.eclj")
+(eclj.ns/load-eclj "eclj/core/colls.eclj")
+(eclj.ns/load-eclj "eclj/core/maps.eclj")
