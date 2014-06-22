@@ -52,6 +52,14 @@
     (when (not (identical? v lookup-sentinel))
       [k v])))
 
+(defn select-keys
+  "Returns a map containing only those entries in m whose key is in keys"
+  [m keyseq]
+  (->> keyseq
+    (map #(find m %))
+    (remove nil?)
+    (into (empty m))))
+
 (defn keys
   "Returns a sequence of the map's keys, in the same order as (seq m)."
   [m]
