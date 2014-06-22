@@ -15,6 +15,13 @@
                 "assoc expects even number of arguments after map/vector, found odd number")))
       ret)))
 
+(defn get
+  "Returns the value mapped to key, not-found or nil if key not present."
+  ([map key]
+   (-lookup map key))
+  ([map key not-found]
+   (-lookup map key not-found)))
+
 (defn dissoc
   "dissoc[iate]. Returns a new map of the same (hashed/sorted) type,
   that does not contain a mapping for key(s)."

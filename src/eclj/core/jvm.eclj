@@ -27,6 +27,11 @@
   IEmptyableCollection
   (-empty [coll] nil)
 
+  ILookup
+  (-lookup
+    ([o k] nil)
+    ([o k not-found] not-found))
+
   IMap
   (-dissoc [coll x] nil)
 
@@ -51,8 +56,45 @@
 
   )
 
-; ArraySeq and the various primitive specializations have private constructors.
-(doseq [name '["[Ljava.lang.Object;" "[I" "[F" "[D" "[J" "[B" "[C" "[S" "[Z"]]
-  (extend (java.lang.Class/forName name)
+(doseq [arr '["[Ljava.lang.Object;" "[I" "[F" "[D" "[J" "[B" "[C" "[S" "[Z"]]
+  (extend (java.lang.Class/forName arr)
+
+    ;; ArraySeq and its primitive specializations have private constructors.
     ISeqable
-    {:-seq clojure.core/seq}))
+    {:-seq clojure.core/seq}
+
+    ILookup
+    {:-lookup (fn
+                ([o k] (-lookup o k nil))
+                ([o k not-found]
+                  (if (and (number? k) (< -1 k (count o)))
+                    (nth o k)
+                    not-found)))}
+
+    ))
+
+(extend-protocol ILookup
+
+  java.util.Map
+  (-lookup
+    ([o k] nil)
+    ([o k not-found]
+     not-found))
+
+  java.lang.String
+  (-lookup
+    ([o k] (-lookup o k nil))
+    ([o k not-found]
+     (if (and (number? k) (< -1 k (count o)))
+       (nth o k)
+       not-found)))
+
+  clojure.lang.IPersistentSet
+  (-lookup
+    ([o k] (.get o k))
+    ([o k not-found]
+     (if (contains? o k)
+       (.get o k)
+       not-found)))
+
+  )
