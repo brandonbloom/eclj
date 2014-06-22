@@ -87,7 +87,6 @@
 
   (meta ^{:k :v} (reify Object (toString [this] \"foo\")))
   == {:k :v}"
-  {:added "1.2"}
   [& opts+specs]
   (let [[interfaces methods] (parse-opts+specs opts+specs)]
     (with-meta `(reify* ~interfaces ~@methods) (meta &form))))
@@ -116,7 +115,6 @@
 
 (defn- emit-defrecord
   "Do not use this directly - use defrecord"
-  {:added "1.2"}
   [tagname name fields interfaces methods]
   (let [classname (with-meta (symbol (str (namespace-munge *ns*) "." name)) (meta name))
         interfaces (vec interfaces)
@@ -316,9 +314,6 @@
   Given (defrecord TypeName ...), two factory functions will be
   defined: ->TypeName, taking positional parameters for the fields,
   and map->TypeName, taking a map of keywords to field values."
-  {:added "1.2"
-   :arglists '([name [& fields] & opts+specs])}
-
   [name fields & opts+specs]
   (validate-fields fields)
   (let [gname name
@@ -340,8 +335,6 @@
 
 (defn record?
   "Returns true if x is a record"
-  {:added "1.6"
-   :static true}
   [x]
   (instance? clojure.lang.IRecord x))
 
@@ -415,9 +408,6 @@
 
   Given (deftype TypeName ...), a factory function called ->TypeName
   will be defined, taking positional parameters for the fields"
-  {:added "1.2"
-   :arglists '([name [& fields] & opts+specs])}
-
   [name fields & opts+specs]
   (validate-fields fields)
   (let [gname name
