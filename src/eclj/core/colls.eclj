@@ -5,11 +5,6 @@
   [x]
   (and (some? x) (satisfies? ICollection x)))
 
-(defn map?
-  "Return true if x is not nil and satisfies IMap"
-  [x]
-  (and (some? x) (satisfies? IMap x)))
-
 (defn vector?
   "Return true if x is not nil and satisfies IVector"
   [x]
@@ -19,11 +14,6 @@
   "Returns true if x is not nil and satisfies IList"
   [x]
   (and (some? x) (satisfies? IList x)))
-
-(defn set?
-  "Returns true if x is not nil and satisfies ISet"
-  [x]
-  (and (some? x) (satisfies? ISet x)))
 
 (defn associative?
   "Returns true if x is not nil and satisfies IAssociative"

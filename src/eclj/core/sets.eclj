@@ -1,0 +1,31 @@
+(in-ns 'eclj.core)
+
+(defn set?
+  "Returns true if x is not nil and satisfies ISet"
+  [x]
+  (and (some? x) (satisfies? ISet x)))
+
+(defn hash-set
+  "Returns a new hash set with supplied keys.  Any equal keys are
+  handled as if by repeated uses of conj."
+  [& keys]
+  (clojure.lang.PersistentHashSet/create keys))
+
+(defn sorted-set
+  "Returns a new sorted set with supplied keys.  Any equal keys are
+  handled as if by repeated uses of conj."
+  [& keys]
+  (clojure.lang.PersistentTreeSet/create keys))
+
+(defn sorted-set-by
+  "Returns a new sorted set with supplied keys, using the supplied
+  comparator.  Any equal keys are handled as if by repeated uses of
+  conj."
+  [comparator & keys]
+  (clojure.lang.PersistentTreeSet/create comparator keys))
+
+(defn disj
+  "disj[oin]. Returns a new set of the same (hashed/sorted) type, that
+  does not contain key(s)."
+  [set & ks]
+  (reduce -disjoin set ks))

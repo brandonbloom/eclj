@@ -1,5 +1,32 @@
 (in-ns 'eclj.core)
 
+(defn map?
+  "Return true if x is not nil and satisfies IMap"
+  [x]
+  (and (some? x) (satisfies? IMap x)))
+
+(defn hash-map
+  "keyval => key val
+  Returns a new hash map with supplied mappings.  If any keys are
+  equal, they are handled as if by repeated uses of assoc."
+  [& keyvals]
+  (clojure.lang.PersistentHashMap/create keyvals))
+
+(defn sorted-map
+  "keyval => key val
+  Returns a new sorted map with supplied mappings.  If any keys are
+  equal, they are handled as if by repeated uses of assoc."
+  [& keyvals]
+  (clojure.lang.PersistentTreeMap/create keyvals))
+
+(defn sorted-map-by
+  "keyval => key val
+  Returns a new sorted map with supplied mappings, using the supplied
+  comparator.  If any keys are equal, they are handled as if by
+  repeated uses of assoc."
+  [comparator & keyvals]
+  (clojure.lang.PersistentTreeMap/create comparator keyvals))
+
 (defn assoc
   "assoc[iate]. When applied to a map, returns a new map of the
   same (hashed/sorted) type, that contains the mapping of key(s) to
@@ -37,12 +64,6 @@
   that does not contain a mapping for key(s)."
   [map & ks]
   (reduce -dissoc map ks))
-
-(defn disj
-  "disj[oin]. Returns a new set of the same (hashed/sorted) type, that
-  does not contain key(s)."
-  [set & ks]
-  (reduce -disjoin set ks))
 
 (defn find
   "Returns the map entry for key, or nil if key not present."
