@@ -29,3 +29,22 @@
    (if (= start end)
      []
      (clojure.lang.APersistentVector$SubVector. nil v start end))))
+
+(defn mapv
+  "Returns a vector consisting of the result of applying f to the
+  set of first items of each coll, followed by applying f to the set
+  of second items in each coll, until any one of the colls is
+  exhausted.  Any remaining items in other colls are ignored. Function
+  f should accept number-of-colls arguments."
+  [f & colls]
+  (into [] (apply map f colls)))
+
+(defn filterv
+  "Returns a vector of the items in coll for which
+  (pred item) returns true. pred must be free of side-effects."
+  [pred coll]
+  (->> coll
+    (reduce (fn [v x]
+              (if (pred x) (conj! v x) v))
+            (transient []))
+    persistent!))

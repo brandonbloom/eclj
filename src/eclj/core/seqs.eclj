@@ -101,3 +101,158 @@
   or sorted-map), in reverse order. If rev is empty returns nil"
   [rev]
   (-rseq rev))
+
+;XXX figure out what to do about chunking
+;(defn map
+;  "Returns a lazy sequence consisting of the result of applying f to the
+;  set of first items of each coll, followed by applying f to the set
+;  of second items in each coll, until any one of the colls is
+;  exhausted.  Any remaining items in other colls are ignored. Function
+;  f should accept number-of-colls arguments."
+;  [f & colls]
+;  )
+
+(defn mapcat
+  "Returns the result of applying concat to the result of applying map
+  to f and colls.  Thus function f should return a collection."
+  [f & colls]
+  (apply concat (apply map f colls)))
+
+;XXX figure out what to do about chunking
+;(defn filter
+;  "Returns a lazy sequence of the items in coll for which
+;  (pred item) returns true. pred must be free of side-effects."
+;  ([pred coll]
+;   (lazy-seq
+;    (when-let [s (seq coll)]
+;      (if (chunked-seq? s)
+;        (let [c (chunk-first s)
+;              size (count c)
+;              b (chunk-buffer size)]
+;          (dotimes [i size]
+;              (when (pred (.nth c i))
+;                (chunk-append b (.nth c i))))
+;          (chunk-cons (chunk b) (filter pred (chunk-rest s))))
+;        (let [f (first s) r (rest s)]
+;          (if (pred f)
+;            (cons f (filter pred r))
+;            (filter pred r))))))))
+
+
+(defn remove
+  "Returns a lazy sequence of the items in coll for which
+  (pred item) returns false. pred must be free of side-effects."
+  [pred coll]
+  (filter (complement pred) coll))
+
+(defn take
+  "Returns a lazy sequence of the first n items in coll, or all items if
+  there are fewer than n."
+  [n coll]
+  (lazy-seq
+    (when (pos? n)
+      (when-let [s (seq coll)]
+        (cons (first s) (take (dec n) (rest s)))))))
+
+(defn take-while
+  "Returns a lazy sequence of successive items from coll while
+  (pred item) returns true. pred must be free of side-effects."
+  [pred coll]
+  (lazy-seq
+    (when-let [s (seq coll)]
+      (when (pred (first s))
+        (cons (first s) (take-while pred (rest s)))))))
+
+(defn drop
+  "Returns a lazy sequence of all but the first n items in coll."
+  [n coll]
+  (lazy-seq
+    (loop [n n, coll coll]
+      (let [s (seq coll)]
+        (if (and (pos? n) s)
+          (recur (dec n) (rest s))
+          s)))))
+
+(defn drop-last
+  "Return a lazy sequence of all but the last n (default 1) items in coll"
+  ([s] (drop-last 1 s))
+  ([n s] (map (fn [x _] x) s (drop n s))))
+
+(defn take-last
+  "Returns a seq of the last n items in coll.  Depending on the type
+  of coll may be no better than linear time.  For vectors, see also subvec."
+  [n coll]
+  (loop [s (seq coll), lead (seq (drop n coll))]
+    (if lead
+      (recur (next s) (next lead))
+      s)))
+
+(defn drop-while
+  "Returns a lazy sequence of the items in coll starting from the first
+  item for which (pred item) returns logical false."
+  [pred coll]
+  (lazy-seq
+    (loop [pred pred, coll coll]
+      (let [s (seq coll)]
+        (if (and s (pred (first s)))
+          (recur pred (rest s))
+          s)))))
+
+(defn cycle
+  "Returns a lazy (infinite!) sequence of repetitions of the items in coll."
+  [coll]
+  (lazy-seq
+    (when-let [s (seq coll)]
+      (concat s (cycle s)))))
+
+(defn split-at
+  "Returns a vector of [(take n coll) (drop n coll)]"
+  [n coll]
+  [(take n coll) (drop n coll)])
+
+(defn split-with
+  "Returns a vector of [(take-while pred coll) (drop-while pred coll)]"
+  [pred coll]
+  [(take-while pred coll) (drop-while pred coll)])
+
+(defn repeat
+  "Returns a lazy (infinite!, or length n if supplied) sequence of xs."
+  ([x] (lazy-seq (cons x (repeat x))))
+  ([n x] (take n (repeat x))))
+
+(defn replicate
+  "DEPRECATED: Use 'repeat' instead.
+   Returns a lazy seq of n xs."
+  [n x]
+  (take n (repeat x)))
+
+(defn iterate
+  "Returns a lazy sequence of x, (f x), (f (f x)) etc. f must
+  be free of side-effects"
+  [f x]
+  (cons x (lazy-seq (iterate f (f x)))))
+
+;XXX figure out what to do about chunking
+;(defn range
+;  "Returns a lazy seq of nums from start (inclusive) to end
+;  (exclusive), by step, where start defaults to 0, step to 1, and end to
+;  infinity. When step is equal to 0, returns an infinite sequence of
+;  start. When start is equal to end, returns empty list."
+;  ([] (range 0 Double/POSITIVE_INFINITY 1))
+;  ([end] (range 0 end 1))
+;  ([start end] (range start end 1))
+;  ([start end step]
+;   (lazy-seq
+;    (let [b (chunk-buffer 32)
+;          comp (cond (or (zero? step) (= start end)) not=
+;                     (pos? step) <
+;                     (neg? step) >)]
+;      (loop [i start]
+;        (if (and (< (count b) 32)
+;                 (comp i end))
+;          (do
+;            (chunk-append b i)
+;            (recur (+ i step)))
+;          (chunk-cons (chunk b)
+;                      (when (comp i end)
+;                        (range i end step)))))))))
