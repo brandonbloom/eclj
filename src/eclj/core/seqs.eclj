@@ -15,9 +15,7 @@
   empty, returns nil.  (seq nil) returns nil. seq also works on
   Strings, native Java arrays (of reference types) and any objects
   that implement Iterable."
-  (if (satisfies? ISeq coll)
-    coll
-    (-seq coll)))
+  (-seq coll))
 
 (defn first
   "Returns the first item in the collection. Calls seq on its

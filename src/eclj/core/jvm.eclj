@@ -20,6 +20,9 @@
   (-first [o] nil)
   (-rest [o] ())
 
+  ISeqable
+  (-seq [o] nil)
+
   INext
   (-next [o] nil)
 

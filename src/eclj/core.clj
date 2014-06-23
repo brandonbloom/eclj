@@ -2,7 +2,8 @@
   (:refer-clojure :only [])
   (:require [eclj.interpret.cps :as cps]
             [eclj.env :as env]
-            [eclj.common :refer (map->Syntax)]))
+            [eclj.common :refer (map->Syntax)]
+            [eclj.method-cache]))
 
 (clojure.core/defn eval
   ([form]
