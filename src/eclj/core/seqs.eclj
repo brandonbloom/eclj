@@ -294,3 +294,21 @@
   "Returns a lazy seq of the elements of coll separated by sep"
   [sep coll]
   (drop 1 (interleave (repeat sep) coll)))
+
+(defn partition
+  "Returns a lazy sequence of lists of n items each, at offsets step
+  apart. If step is not supplied, defaults to n, i.e. the partitions
+  do not overlap. If a pad collection is supplied, use its elements as
+  necessary to complete last partition upto n items. In case there are
+  not enough padding elements, return a partition with less than n items."
+  ([n coll]
+   (partition n n coll))
+  ([n step coll]
+   (partition n step nil coll))
+  ([n step pad coll]
+   (lazy-seq
+     (when-let [s (seq coll)]
+       (let [p (doall (take n s))]
+         (if (= n (count p))
+           (cons p (partition n step pad (nthrest s step)))
+           (list (take n (concat p pad)))))))))
