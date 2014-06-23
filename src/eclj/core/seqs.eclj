@@ -256,3 +256,25 @@
 ;          (chunk-cons (chunk b)
 ;                      (when (comp i end)
 ;                        (range i end step)))))))))
+
+(defn take-nth
+  "Returns a lazy seq of every nth item in coll."
+  [n coll]
+  (lazy-seq
+    (when-let [s (seq coll)]
+      (cons (first s) (take-nth n (drop n s))))))
+
+(defn interleave
+  "Returns a lazy seq of the first item in each coll, then the second etc."
+  ([] ())
+  ([& colls]
+   (lazy-seq
+     (let [ss (map seq colls)]
+       (when (every? identity ss)
+         (concat (map first ss) (apply interleave (map rest ss))))))))
+
+
+(defn interpose
+  "Returns a lazy seq of the elements of coll separated by sep"
+  [sep coll]
+  (drop 1 (interleave (repeat sep) coll)))

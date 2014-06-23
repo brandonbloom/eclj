@@ -250,3 +250,5 @@
   (-get-method [mf dispatch-val])
   (-methods [mf])
   (-prefers [mf]))
+
+;XXX hierarchy
