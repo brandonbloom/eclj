@@ -19,13 +19,13 @@ extensible abstract interpreter and extensible JIT compiler. See [Lancet][2].
 
 Experimental and unstable!
 
-## Platform
+### Platform
 
 Runs on the JVM with Clojure 1.5.1 or newer.
 
 Standalone deployment and cross-compilation to alternative platforms are goals.
 
-## Evaluator
+### Evaluator
 
 The base interpreter is written in a trampolined continuation-passing style. It
 is complete enough to be self-applicable. There is also a meta-circular
