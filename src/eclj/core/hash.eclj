@@ -1,0 +1,38 @@
+(in-ns 'eclj.core)
+
+(defn hash
+  "Returns the hash code of its argument. Note this is the hash code
+  consistent with =, and thus is different than .hashCode for Integer,
+  Short, Byte and Clojure collections."
+  [x]
+  (-hash x))
+
+;TODO port Murmur3 to eclj
+
+(defn mix-collection-hash
+  "Mix final collection hash for ordered or unordered collections.
+  hash-basis is the combined collection hash, count is the number
+  of elements included in the basis. Note this is the hash code
+  consistent with =, different from .hashCode.
+  See http://clojure.org/data_structures#hash for full algorithms."
+  ^long
+  [^long hash-basis ^long count]
+  (clojure.lang.Murmur3/mixCollHash hash-basis count))
+
+(defn hash-ordered-coll
+  "Returns the hash code, consistent with =, for an external ordered
+  collection implementing Iterable.
+  See http://clojure.org/data_structures#hash for full algorithms."
+  ^long
+  [coll]
+  (clojure.lang.Murmur3/hashOrdered coll))
+
+(defn hash-unordered-coll
+  "Returns the hash code, consistent with =, for an external unordered
+  collection implementing Iterable. For maps, the iterator should return map
+  entries whose hash is computed as
+     (hash-ordered-coll [k v]).
+   See http://clojure.org/data_structures#hash for full algorithms."
+  ^long
+  [coll]
+  (clojure.lang.Murmur3/hashUnordered coll))

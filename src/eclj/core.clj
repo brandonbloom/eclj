@@ -111,6 +111,7 @@
 (eclj.ns/load-eclj "eclj/core/refs.eclj")
 (eclj.ns/load-eclj "eclj/core/locks.eclj")
 (eclj.ns/load-eclj "eclj/core/delays.eclj")
+(eclj.ns/load-eclj "eclj/core/hash.eclj")
 (eclj.ns/load-eclj "eclj/core/seqs.eclj")
 (eclj.ns/load-eclj "eclj/core/colls.eclj")
 (eclj.ns/load-eclj "eclj/core/maps.eclj")

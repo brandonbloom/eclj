@@ -153,3 +153,19 @@
         timeout-val)))
 
   )
+
+(extend-protocol IHash
+
+  java.lang.Object
+  (-hash [o]
+    (.hashCode o))
+
+  java.lang.Number
+  (-hash [o]
+    (clojure.lang.Numbers/hasheq o))
+
+  java.lang.String
+  (-hash [o]
+    (clojure.lang.Murmur3/hashInt (.hashCode o)))
+
+  )
