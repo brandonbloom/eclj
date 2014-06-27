@@ -232,6 +232,7 @@
 
 (defmethod parse-seq 'set!
   [[_ location expr :as form] env]
+  ;;TODO just :head :assign
   (if (symbol? location)
     {:head :assign-var :form form :env env
      :name location :expr expr}

@@ -1,6 +1,6 @@
 (ns eclj.interpret.cps
   (:refer-clojure :exclude [eval])
-  (:require [eclj.common :refer (map->Syntax)]
+  (:require [eclj.common :refer (map->Syntax expansion?)]
             [eclj.parse :refer (parse)]
             [eclj.fn]))
 
@@ -103,12 +103,13 @@
   [{:keys [sym env]}]
   (handle (lookup env sym)
           (fn [{:keys [origin value] :as resolved}]
-            (if (macro? resolved)
-              (signal {:error :value-of-macro :name sym})
-              (case origin
-                :locals (answer value)
-                :host (answer value)
-                :namespace (raise {:op :deref :ref value}))))))
+            (cond
+              (macro? resolved) (signal {:error :value-of-macro :name sym})
+              (expansion? value) (thunk (:expr value) env)
+              :else (case origin
+                      :locals (answer value)
+                      :host (answer value)
+                      :namespace (raise {:op :deref :ref value}))))))
 
 (defmethod interpret-syntax :if
   [{:keys [test then else env]}]
@@ -225,14 +226,15 @@
   (-apply f arg))
 
 (defmethod interpret-syntax :invoke
-  [{:keys [f args env form]}]
+  [{:keys [f args env form] :as ast}]
   (if (symbol? f)
     (handle (lookup env f)
             #(let [{:keys [value] :as resolved} %]
-               (if (macro? resolved)
-                 (thunk-syntax {:head :expand :macro value
-                                :form form :env env})
-                 (apply-args value args env))))
+               (cond
+                 (macro? resolved) (thunk-syntax {:head :expand :macro value
+                                                  :form form :env env})
+                 (expansion? value) (thunk-syntax (assoc ast :f (:expr value)))
+                 :else (apply-args value args env))))
     (handle (thunk f env)
             #(apply-args % args env))))
 
@@ -284,6 +286,7 @@
             (handle (interpret-meta sym env)
                     #(raise {:op :define :sym % :value value})))))
 
+;;TODO just :assign, expand symbol macros for place
 (defmethod interpret-syntax :assign-var
   [{:keys [name expr env]}]
   (handle (lookup env name)

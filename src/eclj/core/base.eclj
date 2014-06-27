@@ -141,6 +141,12 @@
 (defn ^:eclj continue [k x]
   (raise (trampoline k x)))
 
+(defmacro symbol-macrolet [bindings & body]
+  (let [symbols (take-nth 2 bindings)
+        expansions (map eclj.common/->Expansion (take-nth 2 (next bindings)))]
+    `(let [~@(interleave symbols expansions)]
+       ~@body)))
+
 
 (comment ;XXX
 

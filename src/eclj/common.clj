@@ -4,3 +4,9 @@
 (defmacro pure [x] x)
 
 (defrecord Syntax [head form env])
+
+;; For symbol macros.
+(defrecord Expansion [expr])
+
+(defn expansion? [expr]
+  (instance? Expansion expr))

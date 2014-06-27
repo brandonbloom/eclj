@@ -1,6 +1,6 @@
 (ns eclj.interpret.meta
   (:refer-clojure :exclude [eval defmulti defmethod])
-  (:require [eclj.common :refer (map->Syntax)]
+  (:require [eclj.common :refer (map->Syntax expansion?)]
             [eclj.parse :refer (parse)]
             [eclj.fn]
             [eclj.multi-fn :refer (defmulti defmethod)]))
@@ -64,12 +64,13 @@
 (defmethod eval-head :name
   [{:keys [sym env]}]
   (let [{:keys [origin value] :as resolved} (lookup env sym)]
-    (if (macro? resolved)
-      (signal {:error :value-of-macro :name sym})
-      (case origin
-        :locals value
-        :host value
-        :namespace (raise {:op :deref :ref value})))))
+    (cond
+      (macro? resolved) (signal {:error :value-of-macro :name sym})
+      (expansion? value) (eval (:expr value) env)
+      :else (case origin
+              :locals value
+              :host value
+              :namespace (raise {:op :deref :ref value})))))
 
 (defmethod eval-head :if
   [{:keys [test then else env]}]
@@ -139,16 +140,17 @@
     (apply f values)))
 
 (defmethod eval-head :invoke
-  [{:keys [f args env form]}]
+  [{:keys [f args env form] :as ast}]
   (if (symbol? f)
     (let [{:keys [value] :as resolved} (lookup env f)]
-      (if (macro? resolved)
-        (eval-syntax {:head :expand :macro value
-                      :form form :env env})
-        (apply-args value args env)))
+      (cond
+        (macro? resolved) (eval-syntax {:head :expand :macro value
+                                        :form form :env env})
+        (expansion? value) (eval-syntax (assoc ast :f (:expr value)))
+        :else (apply-args value args env)))
     (apply-args (eval f env) args env)))
 
-;;TODO: Replace expand special with Applicable Macro type?
+;;TODO: Replace expand special with -apply on a macro type.
 (defmethod eval-head :expand
   [{:keys [macro form env]}]
   (let [expanded (apply macro (list* form env (next form)))]
