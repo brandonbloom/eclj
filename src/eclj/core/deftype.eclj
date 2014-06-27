@@ -21,16 +21,19 @@
 (defn- parse-opts+specs [opts+specs]
   (let [[opts specs] (parse-opts opts+specs)
         impls (parse-impls specs)
-        interfaces (-> (map #(if (var? (resolve %))
-                               (:on (deref (resolve %)))
-                               %)
-                            (keys impls))
+        resolve-proto #(if (var? (resolve %))
+                         (deref (resolve %))
+                         %)
+        interfaces (-> (map #(:on (resolve-proto %) %) (keys impls))
                        set
                        (disj 'Object 'java.lang.Object)
                        vec)
-        methods (map (fn [[name params & body]]
-                       (cons name (maybe-destructured params body)))
-                     (apply concat (vals impls)))]
+        methods (for [[proto meths] impls
+                      :let [proto (resolve-proto proto)
+                            method-map (:method-map proto identity)]
+                      [meth params & body] meths
+                      :let [meth (symbol (name (method-map (keyword meth))))]]
+                  (cons meth (maybe-destructured params body)))]
     (when-let [bad-opts (seq (remove #{:no-print} (keys opts)))]
       (throw (IllegalArgumentException.
                (apply print-str "Unsupported option(s) -" bad-opts))))
