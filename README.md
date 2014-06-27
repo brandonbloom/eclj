@@ -21,7 +21,7 @@ Experimental and unstable!
 
 ### Platform
 
-Runs on the JVM with Clojure 1.5.1 or newer.
+Runs on the JVM with Clojure 1.6.0.
 
 Standalone deployment and cross-compilation to alternative platforms are goals.
 
