@@ -6,6 +6,11 @@
   [^java.lang.Class c x]
   (.isInstance c x))
 
+(defn class?
+  "Returns true if x is an instance of Class"
+  [x]
+  (instance? java.lang.Class x))
+
 (defn cast
   "Throws a ClassCastException if x is not a c, else returns x."
   [^java.lang.Class c x]
