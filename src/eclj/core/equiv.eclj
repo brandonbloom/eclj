@@ -1,0 +1,36 @@
+(in-ns 'eclj.core)
+
+(defn identical?
+  "Tests if 2 arguments are the same object"
+  [x y]
+  (clojure.lang.Util/identical x y))
+
+(defn =
+  "Equality. Returns true if x equals y, false if not. Same as Java
+  x.equals(y) except it also works for nil, and compares numbers and
+  collections in a type-independent manner.  Clojure's immutable data
+  structures define equals() (and thus =) as a value, not an identity,
+  comparison."
+  [x & xs]
+  (if (seq xs)
+    (and (-equiv x (first xs))
+         (apply = x (next xs)))
+    true))
+
+(defn not=
+  "Same as (not (= obj1 obj2))"
+  [x & xs]
+  (not (apply = x xs)))
+
+(defn- equiv-sequential
+  "Assumes x is sequential. Returns true if x equals y, otherwise
+  returns false."
+  [x y]
+  (boolean
+    (when (sequential? y)
+      (loop [xs (seq x) ys (seq y)]
+        (cond
+          (nil? xs) (nil? ys)
+          (nil? ys) false
+          (= (first xs) (first ys)) (recur (next xs) (next ys))
+          :else false)))))

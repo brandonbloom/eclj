@@ -154,6 +154,22 @@
 
   )
 
+(extend-protocol IEquiv
+
+  java.lang.Object
+  (-equiv [x y]
+    (.equals x y))
+
+  java.lang.Number
+  (-equiv [x y]
+    (clojure.lang.Numbers/equal x y))
+
+  clojure.lang.IPersistentCollection
+  (-equiv [coll o]
+    (clojure.lang.Util/pcequiv coll o))
+
+  )
+
 (extend-protocol IHash
 
   java.lang.Object

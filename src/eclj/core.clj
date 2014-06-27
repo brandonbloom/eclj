@@ -107,6 +107,7 @@
 (eclj.ns/load-eclj "eclj/core/protocols.eclj")
 (eclj.ns/load-eclj "eclj/core/jvm.eclj")
 (eclj.ns/load-eclj "eclj/core/bools.eclj")
+(eclj.ns/load-eclj "eclj/core/equiv.eclj")
 (eclj.ns/load-eclj "eclj/core/metadata.eclj")
 (eclj.ns/load-eclj "eclj/core/refs.eclj")
 (eclj.ns/load-eclj "eclj/core/locks.eclj")
