@@ -35,13 +35,6 @@
     (catch ClassNotFoundException e
       nil)))
 
-(defn rewrite-methods [methods env]
-  (for [[name args & body] methods
-        :let [expr `'(do ~@body)
-              denv `(-> ~env ~@(for [arg args]
-                                 `(assoc-in [:locals '~arg] ~arg)))]]
-    (list name args `(eclj.core/eval ~expr ~denv))))
-
 ;;TODO: Namespaced keys?
 (def kernel {
 
@@ -110,13 +103,31 @@
 
   :reify
   (fn [{:keys [env interfaces methods]}]
-    (clojure.core/eval `(reify* ~interfaces ~@(rewrite-methods methods env))))
+    (clojure.core/eval
+      `(reify* ~interfaces
+        ~@((for [[name args & body] methods
+                 :let [expr `'(do ~@body)
+                       denv `(-> ~env ~@(for [arg args]
+                                          `(assoc-in [:locals '~arg] ~arg)))]]
+              (list name args `(eclj.core/eval ~expr ~denv)))))))
 
   :deftype
   (fn [{:keys [env tagname classname fields implements methods] :as op}]
-    (clojure.core/eval `(deftype* ~tagname ~classname ~fields
-                                  :implements ~implements
-                                  ~@(rewrite-methods methods env))))
+    (clojure.core/eval
+      (user/dbg
+      `(deftype* ~tagname ~classname ~fields :implements ~implements
+         ~@(for [[name args & body] methods
+                 :let [params (repeatedly (count args) gensym)
+                       this (first params)
+                       getters (map #(list (symbol (str ".-" %)) this) fields)
+                       expr `'(eclj.core/symbol-macrolet
+                                [~@(interleave fields getters)]
+                                (let [~@(interleave args params)]
+                                  ~@body))
+                       denv `(-> ~env
+                               ~@(for [param params]
+                                   `(assoc-in [:locals '~param] ~param)))]]
+               (list name (vec params) `(eclj.core/eval ~expr ~denv)))))))
 
 })
 
