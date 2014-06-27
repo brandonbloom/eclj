@@ -122,32 +122,6 @@
           (list* `assert-args more)))))
 
 
-;;; EClj Extensions
-
-(defn ^:eclj ns-env []
-  (eclj.env/ns-env))
-
-;;XXX quasi-primitive
-(defmacro ^:eclj raise [effect]
-  `(eclj.core/raise ~effect))
-
-(defn ^:eclj handle-with* [handler thunk]
-  (let [eff (eclj.core/eval-effect (list thunk) (assoc (ns-env) :kernel nil))]
-    (raise (or (handler eff) eff))))
-
-(defmacro ^:eclj handle-with [handler & body]
-  `(handle-with* ~handler (fn [] ~@body)))
-
-(defn ^:eclj continue [k x]
-  (raise (trampoline k x)))
-
-(defmacro symbol-macrolet [bindings & body]
-  (let [symbols (take-nth 2 bindings)
-        expansions (map eclj.common/->Expansion (take-nth 2 (next bindings)))]
-    `(let [~@(interleave symbols expansions)]
-       ~@body)))
-
-
 (comment ;XXX
 
 (require 'eclj.interpret.meta :reload)
