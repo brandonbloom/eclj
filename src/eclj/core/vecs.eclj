@@ -13,7 +13,7 @@
 (defn vec
   "Creates a new vector containing the contents of coll."
   [coll]
-  (clojure.lang.PersistentVector/create coll))
+  (clojure.lang.PersistentVector/create (sequence coll)))
 
 (defn subvec
   "Returns a persistent vector of the items in vector from
