@@ -114,7 +114,6 @@
   :deftype
   (fn [{:keys [env tagname classname fields implements methods] :as op}]
     (clojure.core/eval
-      (user/dbg
       `(deftype* ~tagname ~classname ~fields :implements ~implements
          ~@(for [[name args & body] methods
                  :let [params (repeatedly (count args) gensym)
@@ -127,7 +126,7 @@
                        denv `(-> ~env
                                ~@(for [param params]
                                    `(assoc-in [:locals '~param] ~param)))]]
-               (list name (vec params) `(eclj.core/eval ~expr ~denv)))))))
+               (list name (vec params) `(eclj.core/eval ~expr ~denv))))))
 
 })
 
