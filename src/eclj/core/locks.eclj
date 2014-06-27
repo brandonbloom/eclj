@@ -1,0 +1,12 @@
+(in-ns 'eclj.core)
+
+(defmacro locking [x & body]
+  `(let [lockee# ~x]
+     (-lock lockee#)
+     (try
+       ~@body
+       (finally
+         (-unlock lockee#)))))
+
+(defn- reentrant-lock []
+  (java.util.concurrent.locks.ReentrantLock.))

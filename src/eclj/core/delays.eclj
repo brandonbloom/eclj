@@ -1,0 +1,46 @@
+(in-ns 'eclj.core)
+
+(deftype Delay [lock state]
+
+  IDelay
+
+  IDeref
+  (-deref [_]
+    (locking lock
+      (let [[done? f-or-v] @state]
+        (if done?
+          f-or-v
+          (let [v (f-or-v)]
+            (reset! state [true v])
+            v)))))
+
+  IPending
+  (-realized? [_]
+    (first @state))
+
+  )
+
+(defmacro delay [& body]
+  "Takes a body of expressions and yields a Delay object that will invoke the
+  body only the first time it is forced (with force or deref/@), and will
+  cache the result and return it on all subsequent force calls."
+  `(Delay. (reentrant-lock) (atom [false (fn [] ~@body)])))
+
+(defn delay?
+  "returns true if x is a Delay created with delay"
+  [x]
+  (satisfies? IDelay x))
+
+(defn force
+  "If x is a Delay, returns the (possibly cached) value of its expression,
+  else returns x"
+  [x]
+  (if (delay? x)
+    (deref x)
+    x))
+
+(defn ^boolean realized?
+  "Returns true if a value has been produced for a promise, delay, future or
+  lazy sequence."
+  [d]
+  (-realized? d))

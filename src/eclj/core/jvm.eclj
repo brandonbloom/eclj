@@ -132,3 +132,19 @@
   (-namespace [x] nil)
 
   )
+
+(extend-protocol IDelay clojure.lang.Delay)
+
+(extend-type java.util.concurrent.Future
+
+  IDeref
+  (-deref [o] (.get o))
+
+  IDerefWithTimeout
+  (-deref-with-timeout [o msec timeout-val]
+    (try
+      (.get o msec java.util.concurrent.TimeUnit/MILLISECONDS)
+      (catch java.util.concurrent.TimeoutException e
+        timeout-val)))
+
+  )
