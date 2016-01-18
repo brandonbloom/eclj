@@ -19,6 +19,10 @@ extensible abstract interpreter and extensible JIT compiler. See [Lancet][2].
 
 Experimental and unstable!
 
+Development temporarily halted because I couldn't wrap my head around how to
+write a compiler for this thing. In the interim, I've developed
+[Meta-Clojure][3], which may get me over the hump.
+
 ### Platform
 
 Runs on the JVM with Clojure 1.6.0.
@@ -85,3 +89,4 @@ Both are distributed under the Eclipse Public License either version 1.0 or
 
 [1]: http://okmij.org/ftp/Haskell/extensible/
 [2]: https://github.com/TiarkRompf/lancet
+[3]: https://github.com/brandonbloom/metaclj
